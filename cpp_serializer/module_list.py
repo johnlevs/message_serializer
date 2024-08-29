@@ -1,3 +1,26 @@
+# MIT License
+
+# Copyright (c) 2024 johnlevs
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
 from cpp_serializer.module_list_element import Module_List_Element
 from cpp_serializer.module import Module
 from cpp_serializer.message_printer import MessagePrinter
@@ -31,7 +54,7 @@ class module_list:
             directory = self.directory
 
         module_files = []
-        for root, dirs, files in os.walk(directory):
+        for root, _, files in os.walk(directory):
             for file in files:
                 if file.endswith(".icd"):
                     module_files.append((os.path.join(root, file), file[:-4]))
@@ -57,7 +80,6 @@ class module_list:
             module.validatemsgs(self.get_messages())
 
     def generate_cpp(self, target_directory):
-
         if not os.path.exists(target_directory):
             os.makedirs(target_directory)
 
@@ -84,10 +106,11 @@ class module_list:
         self._copy_serializer_files(target_directory + "/serializer")
 
         with open(os.path.join(target_directory, "message.cpp"), "w") as f:
+            f.write(MessagePrinter.printCodeGenWarning())
+            f.write(MessagePrinter.newlines(2))
             self._copy_license(target_directory, f)
             f.write(MessagePrinter.newlines(1))
-
-            f.write("#include \"message.h\"\n")
+            f.write('#include "message.h"\n')
             f.write(MessagePrinter.newlines(1))
             f.write('#include "serializer/serializer.h"\n')
             f.write(MessagePrinter.newlines(1))
@@ -96,10 +119,8 @@ class module_list:
             for module in self.modules:
                 f.write(MessagePrinter.newlines(1))
                 string = module.to_cpp_serialize_implimentation_string()
+                string += module.to_cpp_deserialize_implimentation_string()
                 f.write(string)
-
-            f.write(MessagePrinter.newlines(1))
-            f.write(self.max_size())
 
     def _copy_serializer_files(self, target_directory):
         """
@@ -109,6 +130,8 @@ class module_list:
             for file in files:
                 with open(os.path.join(root, file), "r") as f:
                     with open(os.path.join(target_directory, file), "w") as f2:
+                        f2.write(MessagePrinter.printCodeGenWarning())
+                        f2.write(MessagePrinter.newlines(2))
                         f2.write(f.read())
 
     def _copy_license(self, target_directory, file):
@@ -127,9 +150,10 @@ class module_list:
         Generates the message file.
         """
         with open(os.path.join(target_directory, "message.h"), "w") as f:
+            f.write(MessagePrinter.printCodeGenWarning())
+            f.write(MessagePrinter.newlines(2))
             self._copy_license(target_directory, f)
             f.write(MessagePrinter.startHeaderGuard(self.name))
-
             f.write(MessagePrinter.newlines(2))
             f.write("#include <stdint.h>\n")
 
@@ -143,11 +167,12 @@ class module_list:
 
             f.write(MessagePrinter.newlines(1))
             for module in self.modules:
-                string = module.to_cpp_string();
+                string = module.to_cpp_string()
                 f.write(MessagePrinter.newlines(1))
                 f.write(string)
 
             f.write(MessagePrinter.newlines(1))
+            f.write(self.max_size())
             if self.name != "":
                 f.write(MessagePrinter.endModule())
 
