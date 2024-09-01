@@ -226,7 +226,7 @@ class MessageParameter(MessageElement):
         moduleList = None
         if self.moduleReference != None:
             moduleList = self.moduleReference.get_module_hierarchy()
-        
+
         string = self.to_cpp_string_no_tabs(moduleList)
 
         if self.is_bit_field():
@@ -244,7 +244,7 @@ class MessageParameter(MessageElement):
             str: The C++ string representation of the parameter for serialization.
         """
         if not type_is_valid(self.type):
-            return MessagePrinter.serializeMessageCall(self.name)
+            return MessagePrinter.serializeMessageCall(self.name, self.count)
         return MessagePrinter.serializeParameter(self.name, self.count)
 
     def to_cpp_deserialize_implimentation_string(self):
@@ -254,6 +254,8 @@ class MessageParameter(MessageElement):
         Returns:
             str: The C++ string representation of the parameter for deserialization.
         """
+        if not type_is_valid(self.type):
+            return MessagePrinter.deserializeMessageCall(self.name, self.count)
         return MessagePrinter.deserializeParameter(self.name, self.count)
 
     def containsParam(self, param: str) -> bool:

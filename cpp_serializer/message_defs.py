@@ -29,9 +29,15 @@ MSGDOC: str = "messageDoc"
 
 PARAMFLAGS: str = "parameterFlags"
 PARAMNAME: str = "paramName"
+PARAMETERVALUES: str = "parameterValues"
 PARAMDOC: str = "paramDoc"
 PARAMSIZEBITS: str = "paramSizeBits"
 PARAMBITWORD: str = "paramBitWord"
+
+CONSTANTDEF: str = "constantDef"
+CONSTFLAGS: str = "constantFlags"
+STATEFLAGS: str = "stateFlags"
+
 ALOWTYPESSTR: str = "allowableTypes"
 TYPE: str = "type"
 BITLENGTH: str = "bitLength"
@@ -39,6 +45,12 @@ CPPTYPE: str = "cppType"
 CPPKEYWORDS: str = "cppKeywords"
 
 config: dict = {
+    MSGDEFSTRT: "MESSAGEDEF",
+    MSGDEFEND: "ENDMESSAGEDEF",
+    CONSTANTDEF: "CONSTANTDEF",
+    CONSTFLAGS: {PARAMDOC: "-Doc"},
+    MSGFLGS: {MSGDOC: "-Doc"},
+    PARAMFLAGS: {PARAMBITWORD: "-PW", PARAMDOC: "-Doc"},
     ALOWTYPESSTR: {
         "uint8": {BITLENGTH: 8, CPPTYPE: "uint8_t"},
         "uint16": {BITLENGTH: 16, CPPTYPE: "uint16_t"},
@@ -51,6 +63,7 @@ config: dict = {
         "float32": {BITLENGTH: 32, CPPTYPE: "float"},
         "float64": {BITLENGTH: 64, CPPTYPE: "double"},
         "bitfield": {BITLENGTH: 0, CPPTYPE: "_"},
+        "state": {BITLENGTH: 0, CPPTYPE: "enum"},
     },
     CPPKEYWORDS: {
         "alignas",
@@ -150,10 +163,6 @@ config: dict = {
         "xor",
         "xor_eq",
     },
-    MSGDEFSTRT: "MESSAGEDEF",
-    MSGDEFEND: "ENDMESSAGEDEF",
-    MSGFLGS: {MSGDOC: "-Doc"},
-    PARAMFLAGS: {PARAMBITWORD: "-PW", PARAMDOC: "-Doc"},
 }
 
 
@@ -215,7 +224,9 @@ def name_is_valid(name: str) -> bool:
     Returns:
         bool: True if the name is valid, False otherwise.
     """
-    return name not in config[CPPKEYWORDS] and name not in [T[CPPTYPE] for T in config[ALOWTYPESSTR].values()]
+    return name not in config[CPPKEYWORDS] and name not in [
+        T[CPPTYPE] for T in config[ALOWTYPESSTR].values()
+    ]
 
 
 def get_input_type(cppType):

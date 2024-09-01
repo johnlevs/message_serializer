@@ -1,0 +1,47 @@
+# a message may be defined as such:
+# MESSAGEDEF <message name> -Doc <message documenation (optional)>
+# <paramName> <paramType> (optional)> -Doc <paramComment / documenation (optional)>
+# ...
+# ...
+# ENDMESSAGEDEF
+
+# Valid types are as follows:
+# int8
+# int16
+# int32
+# int64
+# uint8
+# uint16
+# uint32
+# uint64
+# float32
+# float64
+
+# arrays may be defined as such in the paramType field:
+# <paramType>[<arraySize>]
+
+# bitfields are defined in a simliar manner to arrays:
+# bitfield[<size>]
+
+# were size represents the number of bits in the bitfield parameter.
+
+# Some notes on bitfields:
+# If the size is not specified, the parameter will be assumed to be a single bit
+# BitFields are defined as a union of a struct containing the bitfield and a single integer (or array of bytes), containing the bitfield as a whole.
+# Any bitfields that exceed 64 are union'd with the smallest possible byte array that can contain the bitfield.
+# Any bitfield parameters that exceed 64 bits are thrown out with a warning
+
+
+# references to other messages may be made by using the message name as the paramType and long as they are defined in the scope of the files passed to the ICDBuilder
+
+
+
+MESSAGEDEF lightBulbStatusWord -Doc "I contain the status of a light bulb"
+    brightness uint8 -Doc "The brightness of the light bulb"
+    colorR uint8 -Doc "The color of the light bulb"
+    colorG uint8 -Doc "The color of the light bulb"
+    colorB uint8 -Doc "The color of the light bulb"
+    powerOn bitfield[1] -Doc "The power state of the light bulb" -PW lighStatus
+    powerOff bitfield[1] -Doc "The power state of the light bulb" -PW lighStatus
+    broken bitfield[1] -Doc "True (1) if the light bulb is broken" -PW lighStatus
+ENDMESSAGEDEF

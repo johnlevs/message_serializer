@@ -108,12 +108,13 @@ class MessagePrinter:
         line = ""
         line += f"{MessagePrinter.tab()}static constexpr {MessagePrinter._enumType} m_wordId = {enumName};\n\n"
         # add in required serialize and deserialize functions
-        line += f"{MessagePrinter.tab()}int serialize(uint8_t *buffer) override;\n"
-        line += f"{MessagePrinter.tab()}int deserialize(uint8_t *buffer) override;\n"
         line += (
             f"{MessagePrinter.tab()}constexpr wordIds wordId() override "
-            + "{ return m_wordId; };\n\n"
+            + "{ return m_wordId; };\n"
         )
+        line += f"{MessagePrinter.tab()}int serialize(uint8_t *buffer) override;\n"
+        line += f"{MessagePrinter.tab()}int deserialize(uint8_t *buffer) override;\n\n"
+
         MessagePrinter.decrementLayer()
         return line + MessagePrinter.tab() + "};\n"
 
@@ -237,7 +238,12 @@ class MessagePrinter:
         return line
 
     @staticmethod
-    def serializeMessageCall(name) -> str:
+    def serializeMessageCall(name, count=1) -> str:
+        if count > 1:
+            line = MessagePrinter.tab() + f"for (int i = 0; i < {count}; i++) " + "{\n"
+            line += MessagePrinter.tab() + f"\titr += {name}[i].serialize(itr);\n"
+            line += MessagePrinter.tab() + "}\n"
+            return line
         return MessagePrinter.tab() + "itr += " + f"{name}.serialize(itr);\n"
 
     @staticmethod
@@ -285,7 +291,12 @@ class MessagePrinter:
         return line
 
     @staticmethod
-    def deserializeMessageCall(name) -> str:
+    def deserializeMessageCall(name, count=1) -> str:
+        if count > 1:
+            line = MessagePrinter.tab() + f"for (int i = 0; i < {count}; i++) " + "{\n"
+            line += MessagePrinter.tab() + f"\titr += {name}[i].deserialize(itr);\n"
+            line += MessagePrinter.tab() + "}\n"
+            return line
         return MessagePrinter.tab() + f"{name}.deserialize(itr);\n"
 
     @staticmethod
