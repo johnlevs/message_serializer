@@ -1,9 +1,9 @@
 # a message may be defined as such:
-# MESSAGEDEF <message name> -Doc <message documenation (optional)>
-# <paramName> <paramType> (optional)> -Doc <paramComment / documenation (optional)>
+# MSG <message name> -Doc <message documenation (optional)> {
+# <paramName> <paramType> <= <default_value> (optional)> (optional)> -Doc <paramComment / documenation (optional)>
 # ...
 # ...
-# ENDMESSAGEDEF
+# }
 
 # Valid types are as follows:
 # int8
@@ -34,9 +34,14 @@
 
 # references to other messages may be made by using the message name as the paramType and long as they are defined in the scope of the files passed to the ICDBuilder
 
+CONSTANT LED_COUNT float32 = 20
 
+# CONSTANT bad uint8 = bad2
+# CONSTANT bad2 uint8 = bad
 
-MESSAGEDEF ledStatusWord -Doc "I contain the status of a 20 led light strip"
-    lightStatuses lightBulbStatusWord[20] -Doc "The status of each light bulb in the strip"
-    connectedToInternet bitfield[1] -Doc "True (1) if the light bulb is connected to the internet"
-ENDMESSAGEDEF
+MSG ledStatusWord                                       -Doc "I contain the status of a 20 led light strip" 
+{
+    lightStatuses lightBulbStatusWord[LED_COUNT]        -Doc "The status of each light bulb in the strip"
+    connectedToInternet bitfield[1]                     -Doc "True (1) if the light bulb is connected to the internet"
+}
+

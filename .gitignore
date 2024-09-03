@@ -1,2 +1,8 @@
 __pycache__
 test
+demo/serializer
+demo/message.cpp
+demo/message.h
+message_serializer/*.out
+message_serializer/parsetab.py
+archive

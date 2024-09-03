@@ -36,12 +36,12 @@
 
 
 
-MESSAGEDEF lightBulbStatusWord -Doc "I contain the status of a light bulb"
-    brightness uint8 -Doc "The brightness of the light bulb"
-    colorR uint8 -Doc "The color of the light bulb"
-    colorG uint8 -Doc "The color of the light bulb"
-    colorB uint8 -Doc "The color of the light bulb"
-    powerOn bitfield[1] -Doc "The power state of the light bulb" -PW lighStatus
-    powerOff bitfield[1] -Doc "The power state of the light bulb" -PW lighStatus
-    broken bitfield[1] -Doc "True (1) if the light bulb is broken" -PW lighStatus
-ENDMESSAGEDEF
+MSG lightBulbStatusWord                         -Doc "I contain the status of a light bulb" {
+    brightness uint8                            -Doc "The brightness of the light bulb"
+    colorR uint8                                -Doc "The color of the light bulb"
+    colorG uint8                                -Doc "The color of the light bulb"
+    colorB uint8                                -Doc "The color of the light bulb"
+    powerOn bitfield[1]        -PW lighStatus   -Doc  "The power state of the light bulb" 
+    powerOff bitfield[3]       -PW lighStatus   -Doc "The power state of the light bulb" 
+    broken bitfield[1]         -PW lighStatus   -Doc "True (1) if the light bulb is broken" 
+}
