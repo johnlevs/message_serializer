@@ -1,9 +1,24 @@
+
+# Constants may be generated as such:
+# CONSTANT <constant name> <constant type> = <constant value>
+
+# Constants may be used as default values and array size initializers
+
+# States (enums) may be defined as such:
+# STATE <state name> {
+# <state value>
+# ...
+# ...
+# }
+
+# States may be used as default values and array size initializers
+
 # a message may be defined as such:
-# MESSAGEDEF <message name> -Doc <message documenation (optional)>
-# <paramName> <paramType> (optional)> -Doc <paramComment / documenation (optional)>
+# MSG <message name> -Doc <message documenation (optional)> {
+# <paramName> <paramType> <= <default_value> (optional)> (optional)> -Doc <paramComment / documenation (optional)>
 # ...
 # ...
-# ENDMESSAGEDEF
+# }
 
 # Valid types are as follows:
 # i8
@@ -33,7 +48,6 @@
 
 
 # references to other messages may be made by using the message name as the paramType and long as they are defined in the scope of the files passed to the ICDBuilder
-
 
 
 MSG lightBulbStatusWord                         -Doc "I contain the status of a light bulb" 

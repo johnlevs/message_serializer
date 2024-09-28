@@ -1,3 +1,18 @@
+
+# Constants may be generated as such:
+# CONSTANT <constant name> <constant type> = <constant value>
+
+# Constants may be used as default values and array size initializers
+
+# States (enums) may be defined as such:
+# STATE <state name> {
+# <state value>
+# ...
+# ...
+# }
+
+# States may be used as default values and array size initializers
+
 # a message may be defined as such:
 # MSG <message name> -Doc <message documenation (optional)> {
 # <paramName> <paramType> <= <default_value> (optional)> (optional)> -Doc <paramComment / documenation (optional)>
