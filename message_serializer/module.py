@@ -17,7 +17,7 @@ class Module:
             tree = parser.parse_string(
                 file.read(), fileName=fullFileName, debug=self._module_debug
             )
-            if tree is None or parser.error_count() > 0:
+            if tree is None:
                 raise ValueError(f"Error parsing file {fullFileName}")
             self.data["messages"] = tree["messages"]
             self.data["constants"] = tree["constants"]
@@ -46,6 +46,20 @@ class Module:
         Get all the constants in the module
         """
         return self.data["constants"]
+    
+    def get_states(self):
+        """
+        Get all the states in the module
+        """
+        temp = self.data["states"]
+        states = []
+        for state in temp:
+            for field in state["fields"]:
+                field["parent"] = state["name"]
+                field["type"] = parser.STATE
+                states.append(field)
+                
+        return states
 
     """
     ====================================================================================================
@@ -117,6 +131,7 @@ class Module:
         """
 
         for message in self.data["messages"]:
+            message["scope"] = [self.data["name"]];
             message[self.PAD_PARAM_COUNT] = 0
             message[self.BITFIELD_NAME_COUNT] = 0
             names = [field["name"] for field in message["fields"]] + list(
@@ -134,6 +149,8 @@ class Module:
             bfBitSize = 0
             newFields = []
             for field in message["fields"]:
+                field["scope"] = message["scope"] + [message["name"]]
+
                 # check message names
                 if names.count(field["name"]) > 1:
                     raise NameError(
@@ -252,10 +269,10 @@ class Module:
                     continue
                 if not self.is_number(field["default_value"]):
                     field["actual_value"] = self.validate_constant_references(
-                        field["default_value"], "int32", directory_constants_list
+                        field["default_value"], parser.I32, directory_constants_list
                     )
                 else:
-                    field["type"] = "int32"
+                    field["type"] = parser.I32
                     self.resolve_default_value(field)
 
     """
@@ -272,26 +289,13 @@ class Module:
         nameReference = node["name"]
 
         if resolvedType in parser.BUILTINS:
-            bi_type = parser.BUILTINS[resolvedType]
             if not self.is_number(resolvedValue):
                 raise ValueError(
                     f"In {self.fileName}, line {lineReference}:\n"
                     f"\tDefault Value '{resolvedValue}' is not a valid built in type value or Constant identifier for a default value of field '{nameReference}'"
                 )
-            if "int" in resolvedType or resolvedType == "bitfield":
-                resolvedValue = int(resolvedValue)
-            elif "float" in resolvedType:
-                resolvedValue = float(resolvedValue)
-
-            minVal = bi_type["min"]
-            maxVal = bi_type["max"]
-
-            if resolvedType == "bitfield":
-                minVal = 0
-                maxVal = 2 ** int(node["count"]) - 1
-                resolvedType = "bitFeild_size_" + node["count"]
-
-            if resolvedValue < minVal or resolvedValue > maxVal:
+            
+            if not parser.numeric_bounds_check(node):
                 raise ValueError(
                     f"In {self.fileName}, line {lineReference}:\n"
                     f"{nameReference} value '{resolvedValue}' is out of range for type '{resolvedType}'"
@@ -309,11 +313,12 @@ class Module:
         self, referenceIdentifier, constantType, directory_constants_list
     ):
         for node in directory_constants_list:
-            if node["name"] == referenceIdentifier and node["type"] == constantType:
+            if node["name"] == referenceIdentifier and (node["type"] == constantType or node["type"] == parser.STATE):
                 visitList = {}
                 return self.validate_const_references_recursive(
                     node, visitList, directory_constants_list
                 )
+            
         raise ValueError(
             f"In {self.fileName}:\n"
             f"\tConstant identifier '{referenceIdentifier}' is not a known symbol"
@@ -331,7 +336,9 @@ class Module:
         visitList[id(currNode)] = True
 
         # if the default value is numeric type, resolve it
-        if self.is_number(currNode["default_value"]):
+        if currNode["type"] == parser.STATE:
+            return currNode["default_value"]
+        elif self.is_number(currNode["default_value"]):
             self.resolve_default_value(currNode)
             return currNode["default_value"]
         # get next node and perform recursive check
@@ -360,7 +367,7 @@ class Module:
         # create padding field
         return {
             "name": self.get_open_padding_name(message),
-            "type": "bitfield",
+            "type": parser.BF,
             "count": padSize,
             "default_value": None,
             "line": message["line"],
@@ -395,3 +402,8 @@ class Module:
             return True
         except ValueError:
             return False
+
+
+    def error_count(self):
+        return parser.error_count()
+        

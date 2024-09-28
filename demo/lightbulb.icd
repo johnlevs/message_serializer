@@ -6,16 +6,16 @@
 # ENDMESSAGEDEF
 
 # Valid types are as follows:
-# int8
-# int16
-# int32
-# int64
-# uint8
-# uint16
-# uint32
-# uint64
-# float32
-# float64
+# i8
+# i16
+# i32
+# i64
+# u8
+# U16
+# U32
+# U64
+# f32
+# F64
 
 # arrays may be defined as such in the paramType field:
 # <paramType>[<arraySize>]
@@ -36,12 +36,21 @@
 
 
 
-MSG lightBulbStatusWord                         -Doc "I contain the status of a light bulb" {
-    brightness uint8                            -Doc "The brightness of the light bulb"
-    colorR uint8                                -Doc "The color of the light bulb"
-    colorG uint8                                -Doc "The color of the light bulb"
-    colorB uint8                                -Doc "The color of the light bulb"
+MSG lightBulbStatusWord                         -Doc "I contain the status of a light bulb" 
+{
+    brightness u8          = 5                  -Doc "The brightness of the light bulb"
+    colorR u8                                -Doc "The color of the light bulb"
+    colorG u8                                -Doc "The color of the light bulb"
+    colorB u8                                -Doc "The color of the light bulb"
     powerOn bitfield[1]        -PW lighStatus   -Doc  "The power state of the light bulb" 
     powerOff bitfield[3]       -PW lighStatus   -Doc "The power state of the light bulb" 
     broken bitfield[1]         -PW lighStatus   -Doc "True (1) if the light bulb is broken" 
+    
+    tests u8
+
+    blah bitfield[1]
+    blah2 bitfield[64]
+
+    blah4 bitfield[1] -PW test
+    blah3 bitfield[8]
 }
