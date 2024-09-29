@@ -180,7 +180,7 @@ class CppGenerator(Generator):
             elif field["type"] in BUILTINS.keys():
                 line += f"sizeof({field['name']}) + "
             else:
-                scope = self.tree.find_memeber(field["type"])
+                scope = self.tree.find_member(field["type"])
                 line += f"{scope[0][0]}::{field['type']}::SIZE "
                 if field["count"] != 1:
                     line += f"* {field['count']} "
@@ -351,7 +351,8 @@ class CppGenerator(Generator):
         elif field["type"] in BUILTIN_TO_CPP.keys():
             resolvedType = BUILTIN_TO_CPP[field["type"]]
         else:
-            member = self.tree.find_memeber(field["type"])
+            logger.debug("Resolving type for " + field["type"])
+            member = self.tree.find_member(field["type"])
             resolvedType = member[0][0] + "::"
             if member[2] is not None:
                 resolvedType += (
@@ -371,15 +372,17 @@ class CppGenerator(Generator):
                 string += f" = {field['default_value']}"
             else:
                 # get default value scope
-                memember = self.tree.find_memeber(field["default_value"])
-                if memember is None:
+                logger.debug(f"Searching for default value of {field['default_value']}")
+                member = self.tree.find_member(field["default_value"])
+                if member is None:
                     string += f" = {field['default_value']}"
-                else:
+                else :
+                    print(member)
                     hierarchy = (
-                        self.tree.tree[memember[0]] + "::" + memember[1][1]["name"]
+                        self.tree.tree[member[0][1]]['name'] + "::" + self.tree.tree[member[0][1]][member[1][0]][member[1][1]]['name']
                     )
-                    if len(memember) == 3:
-                        hierarchy += "::" + memember[2][1]["name"]
+                    if len(member) == 3 and member[2] is not None:
+                        hierarchy += "::" + member[2][1]["name"]
                     string += f" = {hierarchy}"
 
         string += ";"
