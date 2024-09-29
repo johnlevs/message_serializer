@@ -2,7 +2,7 @@
 
 ## Usage
 
-To use this tool, run message_serizlizer.py in the commandline. Arguments are needed to direct the script towards the configuration files, where the messages are defined.
+To use this tool, run message_serializer.py in the commandline. Arguments are needed to direct the script towards the configuration files, where the messages are defined.
 
 ```bash
 python.exe message_serializer.py <input_dir> <output_dir> <output_file_name(s)> [-L <output language> (optional)]
@@ -15,7 +15,7 @@ Currently the only output language supported is C++.
 The tool supports three type:
 
 - Constants
-- Enumerated values (refered to as states)
+- Enumerated values (referred to as states)
 - Messages
 
 Constants & States are constant values that would typically be defined at compile time in a program. Messages are structures in the program that a user would want to translate to byte arrays. The tool automatically generates the code to serialize each field in a message to network byte ordering, and then de-serialize it back. The generated code would be useful when sending data packets over a network.
@@ -46,8 +46,8 @@ States may be used as default values and array size initializers
 A message may be defined as such:
 
 ```ini
-MSG <message name> -Doc [message documenation (optional)] {
-    <paramName> <paramType> [= <default_value> (optional)]  [-Doc "paramComment / documenation" (optional)]
+MSG <message name> -Doc [message documentation (optional)] {
+    <paramName> <paramType> [= <default_value> (optional)]  [-Doc "paramComment / documentation" (optional)]
     .
     .
 }
@@ -76,7 +76,7 @@ arrays may be defined as such, and can only be defined as members of messages in
 <paramType>[<arraySize>]
 ```
 
-bitfields are defined in a simliar manner to arrays, and can only be memebers of messages:
+bitfields are defined in a similar manner to arrays, and can only be members of messages:
 
 ```ini
 bitfield[<size>] [-PW <bitfield Name> -Doc "docstring" (optional)]
@@ -115,7 +115,7 @@ An two example .icd files can be found in the ```demo``` folder. The example is 
 - lightbulb.icd
 #### lightbulb.icd
 
-This file defines a ```lightbultStatusWord``` struct. You can see the member definitions below:
+This file defines a ```lightBulbStatusWord``` struct. You can see the member definitions below:
 
 ```ini
 MSG lightBulbStatusWord                         -Doc "I contain the status of a light bulb" 
@@ -124,9 +124,9 @@ MSG lightBulbStatusWord                         -Doc "I contain the status of a 
     colorR u8                                -Doc "The color of the light bulb"
     colorG u8                                -Doc "The color of the light bulb"
     colorB u8                                -Doc "The color of the light bulb"
-    powerOn bitfield[1]        -PW lighStatus   -Doc  "The power state of the light bulb" 
-    powerOff bitfield[3]       -PW lighStatus   -Doc "The power state of the light bulb" 
-    broken bitfield[1]         -PW lighStatus   -Doc "True (1) if the light bulb is broken" 
+    powerOn bitfield[1]        -PW lightStatus   -Doc  "The power state of the light bulb" 
+    powerOff bitfield[3]       -PW lightStatus   -Doc "The power state of the light bulb" 
+    broken bitfield[1]         -PW lightStatus   -Doc "True (1) if the light bulb is broken" 
 
     
 }
@@ -136,7 +136,7 @@ MSG lightBulbStatusWord                         -Doc "I contain the status of a 
 led.icd defines a few things:
 - A constant ```LED_COUNT``` set to a value of 2, with a byte size of 1 byte
 - A List of states, ```ON``` and ```OFF```
-- A Message containsing an array of the previously defined ```lightbultStatusWord``` 
+- A Message containing an array of the previously defined ```lightbulbStatusWord``` 
 ```ini
 CONSTANT LED_COUNT u8 = 2
 
@@ -157,7 +157,7 @@ MSG ledStatusWord                                       -Doc "I contain the stat
 
 Running:
 ```bash
-python.exe message_serailze.py demo demo message -L cpp
+python.exe message_serialize.py demo demo message -L cpp
 ```
 Will scan the `demo` directory for `.icd` files and produce the following files (again in the `demo` directory):
 - message.h
@@ -203,8 +203,8 @@ Will scan the `demo` directory for `.icd` files and produce the following files 
 		};
 	}; // namespace LED
 ```
-A few extra feilds are added:
-- `SIZE` is a constant value which contains the actual size of an equivilent byte array containing all the field data. (sum of the size of all the feilds, excludes any padding, ect...)
+A few extra felids are added:
+- `SIZE` is a constant value which contains the actual size of an equivalent byte array containing all the field data. (sum of the size of all the felids, excludes any padding, ect...)
 - `wordID` returns an enumerated value of the word ID. Those are defined at the top of the header file (see below). WordIds are prefixed with the namespace to avoid conflicts due to the global scope.
 
 

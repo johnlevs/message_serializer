@@ -1,64 +1,12 @@
-
-# Constants may be generated as such:
-# CONSTANT <constant name> <constant type> = <constant value>
-
-# Constants may be used as default values and array size initializers
-
-# States (enums) may be defined as such:
-# STATE <state name> {
-# <state value>
-# ...
-# ...
-# }
-
-# States may be used as default values and array size initializers
-
-# a message may be defined as such:
-# MSG <message name> -Doc <message documenation (optional)> {
-# <paramName> <paramType> <= <default_value> (optional)> (optional)> -Doc <paramComment / documenation (optional)>
-# ...
-# ...
-# }
-
-# Valid types are as follows:
-# i8
-# i16
-# i32
-# i64
-# u8
-# u16
-# u32
-# u64
-# f32
-# f64
-
-# arrays may be defined as such in the paramType field:
-# <paramType>[<arraySize>]
-
-# bitfields are defined in a simliar manner to arrays:
-# bitfield[<size>]
-
-# were size represents the number of bits in the bitfield parameter.
-
-# Some notes on bitfields:
-# If the size is not specified, the parameter will be assumed to be a single bit
-# BitFields are defined as a union of a struct containing the bitfield and a single integer (or array of bytes), containing the bitfield as a whole.
-# Any bitfields that exceed 64 are union'd with the smallest possible byte array that can contain the bitfield.
-# Any bitfield parameters that exceed 64 bits are thrown out with a warning
-
-
-# references to other messages may be made by using the message name as the paramType and long as they are defined in the scope of the files passed to the ICDBuilder
-
-
 MSG lightBulbStatusWord                         -Doc "I contain the status of a light bulb" 
 {
     brightness u8          = 5                  -Doc "The brightness of the light bulb"
     colorR u8                                -Doc "The color of the light bulb"
     colorG u8                                -Doc "The color of the light bulb"
     colorB u8                                -Doc "The color of the light bulb"
-    powerOn bitfield[1]        -PW lighStatus   -Doc  "The power state of the light bulb" 
-    powerOff bitfield[3]       -PW lighStatus   -Doc "The power state of the light bulb" 
-    broken bitfield[1]         -PW lighStatus   -Doc "True (1) if the light bulb is broken" 
+    powerOn bitfield[1]        -PW lightStatus   -Doc  "The power state of the light bulb" 
+    powerOff bitfield[3]       -PW lightStatus   -Doc "The power state of the light bulb" 
+    broken bitfield[1]         -PW lightStatus   -Doc "True (1) if the light bulb is broken" 
 
     
 }
