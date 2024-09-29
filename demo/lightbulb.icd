@@ -26,11 +26,11 @@
 # i32
 # i64
 # u8
-# U16
-# U32
-# U64
+# u16
+# u32
+# u64
 # f32
-# F64
+# f64
 
 # arrays may be defined as such in the paramType field:
 # <paramType>[<arraySize>]
@@ -59,12 +59,6 @@ MSG lightBulbStatusWord                         -Doc "I contain the status of a 
     powerOn bitfield[1]        -PW lighStatus   -Doc  "The power state of the light bulb" 
     powerOff bitfield[3]       -PW lighStatus   -Doc "The power state of the light bulb" 
     broken bitfield[1]         -PW lighStatus   -Doc "True (1) if the light bulb is broken" 
+
     
-    tests u8
-
-    blah bitfield[1]
-    blah2 bitfield[64]
-
-    blah4 bitfield[1] -PW test
-    blah3 bitfield[8]
 }

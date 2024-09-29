@@ -1,11 +1,15 @@
 import os
+import logging
 
 from message_serializer.module import Module
 from message_serializer.ast import ast
 
 
+logger = logging.getLogger("message_serialize")
+
 class Directory:
     _debug = False
+    CONFIG_FILE_ENDING = ".icd"
 
     def __init__(self, path):
         Module._module_debug = self._debug
@@ -14,8 +18,10 @@ class Directory:
         self._load_modules()
 
     def _load_modules(self):
+        logger.info(f"Scanning directory {self.path} for *{self.CONFIG_FILE_ENDING} files")
         for file in os.listdir(self.path):
-            if file.endswith(".icd"):
+            if file.endswith(self.CONFIG_FILE_ENDING):
+                logger.info(f"Found {file}, parsing...")
                 m = Module(os.path.join(self.path, file))
                 self.modules.append(m)
 
@@ -26,6 +32,7 @@ class Directory:
         return [module.name for module in self.modules]
 
     def validate(self):
+        logger.info("Validating modules")
         moduleNames = []
         constants = []
         for module in self.modules:

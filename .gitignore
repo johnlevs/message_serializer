@@ -6,3 +6,4 @@ demo/message.h
 message_serializer/*.out
 message_serializer/parsetab.py
 archive
+log/*.log

@@ -1,5 +1,7 @@
+import datetime
 import sys
 import argparse
+import logging
 
 from message_serializer.directory import Directory
 from message_serializer.generator_cpp import CppGenerator
@@ -8,25 +10,32 @@ from message_serializer.generator_cpp import CppGenerator
 # Define command line arguments
 arguments = [
     {
-        "name": "--I",
+        "name": "I",
+        "metavar": "input_dir",
         "help": "Input directory containing message definitions",
-        "required": True,
     },
     {
-        "name": "--L",
+        "name": "D",
+        "metavar": "output_dir",
+        "help": "Output directory for generated code files",
+    },
+    {
+        "name": "O",
+        "metavar": "output_file",
+        "help": "Output file name for generated code",
+    },
+    {
+        "name": "-L",
+        "metavar": "--lang",
         "help": "Language for generated code",
         "choices": ["cpp"],
         "default": "cpp",
     },
-    {
-        "name": "--O",
-        "help": "Output directory for generated code files",
-        "required": True,
-    },
 ]
 
 parser = argparse.ArgumentParser(
-    description="Generate code for message serialization/de-serialization for use in networking"
+    prog="python.exe message_serialize.py",
+    description="Generate code for message serialization/de-serialization structs into byte arrays",
 )
 
 for arg in arguments:
@@ -36,23 +45,79 @@ for arg in arguments:
             help=arg["help"],
             choices=arg["choices"],
             default=arg["default"],
+            metavar=arg["metavar"],
         )
     else:
         parser.add_argument(
-            arg["name"], help=arg["help"], required=arg.get("required", False)
+            arg["name"],
+            help=arg["help"],
+            metavar=arg["metavar"],
         )
+
+# set up logger
+logger = logging.getLogger("message_serialize")
+
+
+def directory_setup():
+    # Create a directory structure for testing
+    import os
+
+    os.makedirs("log", exist_ok=True)
 
 
 if __name__ == "__main__":
+    directory_setup()
+
+    # Set up logging
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+
+    datetime = datetime.datetime.now()
+    datetime = datetime.strftime("%Y-%m-%d_%H-%M-%S")
+
+    session_file_handler = logging.FileHandler(
+        f"log/{datetime}_message_serialize.log",
+        mode="w",
+    )
+    session_file_handler.setLevel(logging.INFO)
+
+
+    log_file_handler = logging.FileHandler(
+        "log/message_serialize.log",
+        mode="a",
+    )
+    log_file_handler.setLevel(logging.DEBUG)
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+        handlers=[
+            log_file_handler,
+            session_file_handler,
+            stream_handler,
+        ],
+    )
 
     args = parser.parse_args()
+    logger.debug(
+        "Command Line Arguments:\n"
+        f"\t\tInput directory: {args.I}\n"
+        f"\t\tOutput directory: {args.D}\n"
+        f"\t\tOutput file: {args.O}\n"
+        f"\t\tLanguage: {args.L}\n"
+    )
 
     # sys.tracebacklimit = 0
     # Directory._debug = True
-    D = Directory(args.I)
-    tree, error_count = D.validate()
+    try:
+        D = Directory(args.I)
+        tree, error_count = D.validate()
+    except Exception as e:
+        logger.fatal(f"Error: {e}")
+        exit(1)
+    
     if error_count > 0:
-        print("Validation failed")
+        logger.error("Validation failed")
         exit(1)
 
     if args.L == "cpp":
@@ -61,5 +126,4 @@ if __name__ == "__main__":
         print(f"Language {args.L} not supported")
         exit(1)
 
-    codeGen.generate_source_files(args.O)
-
+    codeGen.generate_source_files(args.D, args.O)

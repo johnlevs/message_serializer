@@ -1,9 +1,11 @@
+import logging
 import os
 
 from message_serializer.generator import Generator
 from message_serializer.cpp_config import *
 from message_serializer.parser import is_number
 
+logger = logging.getLogger("message_serialize")
 
 def is_cpp_reserved_keywords(name):
     return name in CPPKEYWORDS
@@ -22,11 +24,13 @@ class CppGenerator(Generator):
         self.messageList = []
         super().__init__(ast)
 
-    def generate(self):
+    def generate(self, source_name=None):
+        if source_name is None:
+            source_name = self.NAME
 
         lic = self.get_license() + "\n"
         includeGuard = (
-            f"#ifndef _{self.NAME.upper()}_H_\n" f"#define _{self.NAME.upper()}_H_\n\n"
+            f"#ifndef _{source_name.upper()}_H_\n" f"#define _{source_name.upper()}_H_\n\n"
         )
         includes = '#include "serializer/serializer.h"\n\n' "#include <stdint.h>\n\n"
 
@@ -50,7 +54,7 @@ class CppGenerator(Generator):
             + modules
             + max_size_constant
             + "} // namespace icd\n\n"
-            + f"#endif\t//_{self.NAME.upper()}_H_\n\n"
+            + f"#endif\t//_{source_name.upper()}_H_\n\n"
         )
 
         serializers = ""
@@ -70,13 +74,17 @@ class CppGenerator(Generator):
 
             serializers += module_impl
 
-        impl_includes = f'#include "{self.HEADER_FILE_NAME}"\n\n'
+        impl_includes = f'#include "{source_name}.h"\n\n'
         implimentationFile = lic + impl_includes + serializers
 
         return headerFile, implimentationFile
 
-    def generate_source_files(self, output_dir):
+    def generate_source_files(self, output_dir, source_name=None):
         # copy template files
+        if source_name is None:
+            source_name = self.NAME
+
+        logger.info(f"Copying C++ template files to {output_dir}")
 
         self._copy_template_file(
             f"{output_dir}/serializer", "templates/cpp/", "serializer.h"
@@ -86,15 +94,19 @@ class CppGenerator(Generator):
         )
 
         # generate code
-        header, impl = self.generate()
-        with open(output_dir + "/" + self.HEADER_FILE_NAME, "w") as f:
+        logger.info(f"Generating C++ Source files...")
+        header, impl = self.generate(source_name)
+        with open(output_dir + "/" + source_name + ".h", "w") as f:
             f.write(header)
-        with open(output_dir + "/" + self.SOURCE_FILE_NAME, "w") as f:
+        logger.debug(f"Generated " + output_dir + "/" + source_name + ".h")
+        with open(output_dir + "/" + source_name + ".cpp", "w") as f:
             f.write(impl)
+        logger.debug(f"Generated " + output_dir + "/" + source_name + ".cpp")
 
     def _copy_template_file(self, output_dir, template_dir, file_name):
         # create output directory if it does not exist
         if not os.path.exists(output_dir):
+            logger.debug(f"{output_dir} does not exist, creating directory {output_dir}")
             os.makedirs(output_dir)
         with open(template_dir + "/" + file_name, "r") as f:
             with open(output_dir + "/" + file_name, "w") as out:

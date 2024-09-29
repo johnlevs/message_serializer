@@ -1,8 +1,11 @@
 import ply.yacc as yacc
+import logging
 
 from message_serializer.lexer import *
 import message_serializer.lexer as lexerRef
 
+
+logger = logging.getLogger("message_serialize")
 
 """
 ====================================================================================================
@@ -310,10 +313,9 @@ def parse_string(file_text, fileName, debug=False):
         lexer.input(file_text)
         token = lexer.token()
         while token is not None:
-            print(token)
+            logger.debug(f"Token: {token}")
             token = lexer.token()
-        print("\n")
-
+    logger.debug("Parsing file: " + fileName)
     tree = __parser.parse(file_text)
     __parser.lineno = 1
     lexer.lineno = 1

@@ -1,5 +1,9 @@
 import message_serializer.parser as parser
 import json
+import logging
+
+
+logger = logging.getLogger("message_serialize")
 
 
 class Module:
@@ -46,7 +50,7 @@ class Module:
         Get all the constants in the module
         """
         return self.data["constants"]
-    
+
     def get_states(self):
         """
         Get all the states in the module
@@ -58,7 +62,7 @@ class Module:
                 field["parent"] = state["name"]
                 field["type"] = parser.STATE
                 states.append(field)
-                
+
         return states
 
     """
@@ -73,6 +77,8 @@ class Module:
         """
 
         # check messages
+        logger.debug(f"Validating variable types in {self.fileName}")
+
         for message in self.data["messages"]:
             for field in message["fields"]:
                 if (
@@ -99,6 +105,8 @@ class Module:
         """
         Validate that all module elements (messages, constants, states) in the module have unique names
         """
+        logger.debug(f"Validating variable names in {self.fileName}")
+
         names = self.get_names()
 
         # check messages
@@ -129,9 +137,12 @@ class Module:
         """
         Validate that all fields in each message/state have unique names
         """
+        logger.debug(f"Validating messages names in {self.fileName}")
 
         for message in self.data["messages"]:
-            message["scope"] = [self.data["name"]];
+            logger.debug(f"Validating message fields in '{message['name']}'")
+
+            message["scope"] = [self.data["name"]]
             message[self.PAD_PARAM_COUNT] = 0
             message[self.BITFIELD_NAME_COUNT] = 0
             names = [field["name"] for field in message["fields"]] + list(
@@ -294,7 +305,7 @@ class Module:
                     f"In {self.fileName}, line {lineReference}:\n"
                     f"\tDefault Value '{resolvedValue}' is not a valid built in type value or Constant identifier for a default value of field '{nameReference}'"
                 )
-            
+
             if not parser.numeric_bounds_check(node):
                 raise ValueError(
                     f"In {self.fileName}, line {lineReference}:\n"
@@ -313,12 +324,14 @@ class Module:
         self, referenceIdentifier, constantType, directory_constants_list
     ):
         for node in directory_constants_list:
-            if node["name"] == referenceIdentifier and (node["type"] == constantType or node["type"] == parser.STATE):
+            if node["name"] == referenceIdentifier and (
+                node["type"] == constantType or node["type"] == parser.STATE
+            ):
                 visitList = {}
                 return self.validate_const_references_recursive(
                     node, visitList, directory_constants_list
                 )
-            
+
         raise ValueError(
             f"In {self.fileName}:\n"
             f"\tConstant identifier '{referenceIdentifier}' is not a known symbol"
@@ -403,7 +416,5 @@ class Module:
         except ValueError:
             return False
 
-
     def error_count(self):
         return parser.error_count()
-        
