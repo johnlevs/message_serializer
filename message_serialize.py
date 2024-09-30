@@ -79,14 +79,14 @@ if __name__ == "__main__":
         f"log/{datetime}_message_serialize.log",
         mode="w",
     )
-    session_file_handler.setLevel(logging.INFO)
+    session_file_handler.setLevel(logging.DEBUG)
 
 
     log_file_handler = logging.FileHandler(
         "log/message_serialize.log",
         mode="a",
     )
-    log_file_handler.setLevel(logging.DEBUG)
+    log_file_handler.setLevel(logging.INFO)
 
     logging.basicConfig(
         level=logging.DEBUG,

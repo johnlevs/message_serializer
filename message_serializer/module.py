@@ -15,8 +15,9 @@ class Module:
     _module_debug = False
 
     def __init__(self, fullFileName):
-        self.data = {"name": fullFileName.split("\\")[-1].split(".")[0].upper()}
+        self.data = {"name": fullFileName.replace("\\", "/").split("/")[-1].split(".")[0].upper()}
         self.fileName = fullFileName
+        logger.debug(f"Creating module from file {fullFileName}. Name: {self.data['name']}")
         with open(fullFileName, "r") as file:
             tree = parser.parse_string(
                 file.read(), fileName=fullFileName, debug=self._module_debug

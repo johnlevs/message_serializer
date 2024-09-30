@@ -1,6 +1,10 @@
 import json
 import copy
 
+import logging
+
+logger = logging.getLogger("message_serializer")
+
 
 class ast:
     def __init__(self, jsonTree):
@@ -52,24 +56,32 @@ class ast:
                 return mid
         return None
 
-    def find_memeber(self, name):
+    def find_member(self, name):
         hierarchy = [None, None, None]
         for module_ndx, module in enumerate(self.sortedTree):
+
+            logging.debug(f"Searching for {name} in module {module['name']}")
+
             hierarchy[0] = [module["name"], module_ndx]
 
             ndx = self.__search_module_field(name, "constants", module_ndx)
             if ndx is not None:
                 hierarchy[1] = ["constants", ndx]
+                logging.debug(f"Found {name} in constants")
                 return hierarchy
 
             ndx = self.__search_module_field(name, "states", module_ndx)
             if ndx is not None:
                 hierarchy[1] = ["states", ndx]
+                logging.debug(f"Found {name} in states")
                 return hierarchy
 
             ndx = self.__search_module_field(name, "messages", module_ndx)
             if ndx is not None:
                 hierarchy[1] = ["messages", ndx]
+                logging.debug(f"Found {name} in messages")
                 return hierarchy
+        
+        logging.debug(f"Could not find {name}")
 
         return None
