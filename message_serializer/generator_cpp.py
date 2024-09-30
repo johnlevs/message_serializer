@@ -116,7 +116,7 @@ class CppGenerator(Generator):
     def _generate_message(self, message, module):
         line = (
             self.tab()
-            + f"typedef struct {message['name']} : public serializableMessage"
+            + f"struct {message['name']} : public serializableMessage"
             " {\n"
         )
         docTab = self.tab()
@@ -320,18 +320,24 @@ class CppGenerator(Generator):
         if field["type"] == "bitfield":
             line += (
                 self.tab()
-                + f"{hton_call}(&{field[PW]}, buffer, sizeof({field[PW]}));\n"
+                + f"{hton_call}(&{field[PW]}, itr, sizeof({field[PW]}));\n"
             )
         elif field["type"] in BUILTIN_TO_CPP.keys():
-            line += (
-                self.tab()
-                + f"{hton_call}(&{field['name']}, buffer, sizeof({field['name']}));\n"
-            )
+            if field["count"] == 1:
+                line += (
+                    self.tab()
+                    + f"{hton_call}(&{field['name']}, itr, sizeof({field['name']}));\n"
+                )
+            else:
+                line += (
+                    self.tab()
+                    + f"{hton_call}({field['name']}, itr, sizeof({field['name']}[0]));\n"
+                )
         else:
             line += self.tab() + f"itr += {field['name']}"
             if field["count"] != 1:
                 line += "[i]"
-            line += f".{function_hton_call}(buffer);\n"
+            line += f".{function_hton_call}(itr);\n"
 
         return line
 
