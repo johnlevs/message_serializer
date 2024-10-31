@@ -253,7 +253,7 @@ class Module:
         for message in self.data["messages"]:
             for field in message["fields"]:
                 if "default_value" not in field.keys():
-                    # this shouldn't happen, the parser should fill in default vaue as "None", but just in case
+                    # this shouldn't happen, the parser should fill in default value as "None", but just in case
                     raise ValueError(
                         f"In {self.fileName}, line {field['line']}:\n"
                         f"\tNo default value provided for field '{field['name']}'"

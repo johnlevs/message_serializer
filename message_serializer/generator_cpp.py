@@ -1,11 +1,8 @@
-import logging
-import os
-
-from message_serializer.generator import Generator
+from message_serializer.generator import Generator, logger
 from message_serializer.cpp_config import *
 from message_serializer.parser import is_number
 
-logger = logging.getLogger("message_serialize")
+
 
 def is_cpp_reserved_keywords(name):
     return name in CPPKEYWORDS
@@ -30,7 +27,8 @@ class CppGenerator(Generator):
 
         lic = self.get_license() + "\n"
         includeGuard = (
-            f"#ifndef _{source_name.upper()}_H_\n" f"#define _{source_name.upper()}_H_\n\n"
+            f"#ifndef _{source_name.upper()}_H_\n"
+            f"#define _{source_name.upper()}_H_\n\n"
         )
         includes = '#include "serializer/serializer.h"\n\n' "#include <stdint.h>\n\n"
 
@@ -75,9 +73,9 @@ class CppGenerator(Generator):
             serializers += module_impl
 
         impl_includes = f'#include "{source_name}.h"\n\n'
-        implimentationFile = lic + impl_includes + serializers
+        implementationFile = lic + impl_includes + serializers
 
-        return headerFile, implimentationFile
+        return headerFile, implementationFile
 
     def generate_source_files(self, output_dir, source_name=None):
         # copy template files
@@ -103,21 +101,11 @@ class CppGenerator(Generator):
             f.write(impl)
         logger.debug(f"Generated " + output_dir + "/" + source_name + ".cpp")
 
-    def _copy_template_file(self, output_dir, template_dir, file_name):
-        # create output directory if it does not exist
-        if not os.path.exists(output_dir):
-            logger.debug(f"{output_dir} does not exist, creating directory {output_dir}")
-            os.makedirs(output_dir)
-        with open(template_dir + "/" + file_name, "r") as f:
-            with open(output_dir + "/" + file_name, "w") as out:
-                out.write(self.get_license())
-                out.write(f.read())
+
 
     def _generate_message(self, message, module):
         line = (
-            self.tab()
-            + f"struct {message['name']} : public serializableMessage"
-            " {\n"
+            self.tab() + f"struct {message['name']} : public serializableMessage" " {\n"
         )
         docTab = self.tab()
         self.indent()
@@ -319,8 +307,7 @@ class CppGenerator(Generator):
         line = ""
         if field["type"] == "bitfield":
             line += (
-                self.tab()
-                + f"{hton_call}(&{field[PW]}, itr, sizeof({field[PW]}));\n"
+                self.tab() + f"{hton_call}(&{field[PW]}, itr, sizeof({field[PW]}));\n"
             )
         elif field["type"] in BUILTIN_TO_CPP.keys():
             if field["count"] == 1:
@@ -382,13 +369,16 @@ class CppGenerator(Generator):
                 member = self.tree.find_member(field["default_value"])
                 if member is None:
                     string += f" = {field['default_value']}"
-                else :
-                    print(member)
+                else:
                     hierarchy = (
-                        self.tree.tree[member[0][1]]['name'] + "::" + self.tree.tree[member[0][1]][member[1][0]][member[1][1]]['name']
+                        self.tree.tree[member[0][1]]["name"]
+                        + "::"
+                        + self.tree.tree[member[0][1]][member[1][0]][member[1][1]][
+                            "name"
+                        ]
                     )
                     if len(member) == 3 and member[2] is not None:
-                        hierarchy += "::" + member[2][1]["name"]
+                        hierarchy += "::" + field["default_value"]
                     string += f" = {hierarchy}"
 
         string += ";"

@@ -1,6 +1,12 @@
-from abc import ABC, abstractmethod
 import datetime
+import os
+import logging
+
+from abc import ABC, abstractmethod
 from message_serializer.ast import ast
+
+
+logger = logging.getLogger("message_serializer")
 
 
 class Generator(ABC):
@@ -42,6 +48,18 @@ class Generator(ABC):
 
         return lic
 
+    def _copy_template_file(self, output_dir, template_dir, file_name):
+        # create output directory if it does not exist
+        if not os.path.exists(output_dir):
+            logger.debug(
+                f"{output_dir} does not exist, creating directory {output_dir}"
+            )
+            os.makedirs(output_dir)
+        with open(template_dir + "/" + file_name, "r") as f:
+            with open(output_dir + "/" + file_name, "w") as out:
+                out.write(self.get_license())
+                out.write(f.read())
+
     @abstractmethod
     def generate(self):
         pass
@@ -71,5 +89,5 @@ class Generator(ABC):
         pass
 
     @abstractmethod
-    def generate_source_files(self, output_dir):
+    def generate_source_files(self, output_dir, source_name=None):
         pass

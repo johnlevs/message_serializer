@@ -56,6 +56,14 @@ class ast:
                 return mid
         return None
 
+    def find_field(self, structure, name):
+        ndx = 0
+        for field in structure:
+            if field["name"] == name:
+                return ndx
+            ndx += 1
+        return None
+
     def find_member(self, name):
         hierarchy = [None, None, None]
         for module_ndx, module in enumerate(self.sortedTree):
@@ -75,13 +83,19 @@ class ast:
                 hierarchy[1] = ["states", ndx]
                 logging.debug(f"Found {name} in states")
                 return hierarchy
+            for state in module["states"]:
+                ndx = self.find_field(state["fields"], name)
+                if ndx is not None:
+                    hierarchy[1] = ["states", module["states"].index(state)]
+                    hierarchy[2] = ["fields", ndx]
+                    return hierarchy
 
             ndx = self.__search_module_field(name, "messages", module_ndx)
             if ndx is not None:
                 hierarchy[1] = ["messages", ndx]
                 logging.debug(f"Found {name} in messages")
                 return hierarchy
-        
+
         logging.debug(f"Could not find {name}")
 
         return None
