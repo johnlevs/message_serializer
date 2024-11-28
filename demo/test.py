@@ -1,7 +1,7 @@
 # =========================================================================
 # THIS CODE HAS BEEN AUTOMATICALLY GENERATED USING 'message_serializer' TOOL
 #       https://github.com/johnlevs/message_serializer
-#       Generated on: #2024-10-31 02:05:40# 
+#       Generated on: #2024-11-28 12:09:36# 
 # =========================================================================
 # MIT License
 # 
@@ -25,9 +25,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import numpy as np
-import bitstring
+from typing import List
+from bitstring import BitArray, BitStream
 from serializer.serializer import serializableMessage
 
+
+class wordIds:
+	LED_LEDSTATUSWORD = 0
+	LIGHTBULB_LIGHTBULBSTATUSWORD = 1
 
 class LED:
 	LED_COUNT: np.uint8 = 2
@@ -37,12 +42,24 @@ class LED:
 		OFF = 1
 
 	class ledStatusWord(serializableMessage):
+		"""
+		I contain the status of a 20 led light strip
+			:param lightStatuses: The status of each light bulb in the strip
+			:type lightStatuses: LIGHTBULB.lightBulbStatusWord
+			:param connectedToInternet: True (1) if the light bulb is connected to the internet
+			:type connectedToInternet: np.uint8
+			:param test: 
+			:type test: np.uint8
+
+ 		"""
 		"""############################################ USER DATA ############################################"""
 
-		lightStatuses: list['LIGHTBULB.lightBulbStatusWord']
-		connectedToInternet: np.int8
-		__ledStatusWord_pad_0: np.int8
+		lightStatuses: List['LIGHTBULB.lightBulbStatusWord']
+		"""		The status of each light bulb in the strip		"""
+		connectedToInternet: np.uint8
+		"""		True (1) if the light bulb is connected to the internet		"""
 		test: np.uint8
+		"""		"""
 		"""########################################## SERIALIZATION ##########################################"""
 
 		def __init__(self):
@@ -50,59 +67,81 @@ class LED:
 			self.test = LED.states.OFF
 
 		def serialize(self) -> bytes:
-			bitstream = bitstring.BitStream()
+			bStr = BitStream()
 			for i in range(LED.LED_COUNT):
-				bitstream.append(bitstring.BitArray(bytes=self.lightStatuses[i].serialize()))
-			bitstream.append(bitstring.BitStream(uint=self.connectedToInternet, length=1))
-			bitstream.append(bitstring.BitStream(uint=self.__ledStatusWord_pad_0, length=7))
-			bitstream.append(bitstring.BitStream(uint=self.test, length=8))
-			return bitstream.bytes
+				bStr.append(BitArray(bytes=self.lightStatuses[i].serialize()))
+			bStr.append(BitStream(uint=self.connectedToInternet, length=8))
+			bStr.append(BitStream(uint=self.test, length=8))
+			return bStr.bytes
 
-		def deserialize(self, bitstream: bitstring.BitStream):
+		def deserialize(self, byteArr):
+			bStr = BitStream(bytes=byteArr)
 			for i in range(LED.LED_COUNT):
-				self.lightStatuses[i].deserialize(bitstream)
-			self.connectedToInternet = bitstream.read('uint:1')
-			self.__ledStatusWord_pad_0 = bitstream.read('uint:7')
-			self.test = bitstream.read('uint:8')
+				self.lightStatuses[i].deserialize(bStr)
+			self.connectedToInternet = bStr.read('uintbe:8')
+			self.test = bStr.read('uintbe:8')
 
 
 class LIGHTBULB:
 	class lightBulbStatusWord(serializableMessage):
+		"""
+		I contain the status of a light bulb
+			:param brightness: The brightness of the light bulb
+			:type brightness: np.uint8
+			:param colorR: The color of the light bulb
+			:type colorR: np.uint8
+			:param colorG: The color of the light bulb
+			:type colorG: np.uint8
+			:param colorB: The color of the light bulb
+			:type colorB: np.uint8
+			:param powerOn: The power state of the light bulb
+			:type powerOn: np.uint8
+			:param powerOff: The power state of the light bulb
+			:type powerOff: np.uint8
+			:param broken: True (1) if the light bulb is broken
+			:type broken: np.uint8
+
+ 		"""
 		"""############################################ USER DATA ############################################"""
 
 		brightness: np.uint8
+		"""		The brightness of the light bulb		"""
 		colorR: np.uint8
+		"""		The color of the light bulb		"""
 		colorG: np.uint8
+		"""		The color of the light bulb		"""
 		colorB: np.uint8
-		powerOn: np.int8
-		powerOff: np.int8
-		broken: np.int8
-		__lightBulbStatusWord_pad_0: np.int8
+		"""		The color of the light bulb		"""
+		powerOn: np.uint8
+		"""		The power state of the light bulb		"""
+		powerOff: np.uint8
+		"""		The power state of the light bulb		"""
+		broken: np.uint8
+		"""		True (1) if the light bulb is broken		"""
 		"""########################################## SERIALIZATION ##########################################"""
 
 		def __init__(self):
 			self.brightness = 5
 
 		def serialize(self) -> bytes:
-			bitstream = bitstring.BitStream()
-			bitstream.append(bitstring.BitStream(uint=self.brightness, length=8))
-			bitstream.append(bitstring.BitStream(uint=self.colorR, length=8))
-			bitstream.append(bitstring.BitStream(uint=self.colorG, length=8))
-			bitstream.append(bitstring.BitStream(uint=self.colorB, length=8))
-			bitstream.append(bitstring.BitStream(uint=self.powerOn, length=1))
-			bitstream.append(bitstring.BitStream(uint=self.powerOff, length=3))
-			bitstream.append(bitstring.BitStream(uint=self.broken, length=1))
-			bitstream.append(bitstring.BitStream(uint=self.__lightBulbStatusWord_pad_0, length=3))
-			return bitstream.bytes
+			bStr = BitStream()
+			bStr.append(BitStream(uint=self.brightness, length=8))
+			bStr.append(BitStream(uint=self.colorR, length=8))
+			bStr.append(BitStream(uint=self.colorG, length=8))
+			bStr.append(BitStream(uint=self.colorB, length=8))
+			bStr.append(BitStream(uint=self.powerOn, length=8))
+			bStr.append(BitStream(uint=self.powerOff, length=8))
+			bStr.append(BitStream(uint=self.broken, length=8))
+			return bStr.bytes
 
-		def deserialize(self, bitstream: bitstring.BitStream):
-			self.brightness = bitstream.read('uint:8')
-			self.colorR = bitstream.read('uint:8')
-			self.colorG = bitstream.read('uint:8')
-			self.colorB = bitstream.read('uint:8')
-			self.powerOn = bitstream.read('uint:1')
-			self.powerOff = bitstream.read('uint:3')
-			self.broken = bitstream.read('uint:1')
-			self.__lightBulbStatusWord_pad_0 = bitstream.read('uint:3')
+		def deserialize(self, byteArr):
+			bStr = BitStream(bytes=byteArr)
+			self.brightness = bStr.read('uintbe:8')
+			self.colorR = bStr.read('uintbe:8')
+			self.colorG = bStr.read('uintbe:8')
+			self.colorB = bStr.read('uintbe:8')
+			self.powerOn = bStr.read('uintbe:8')
+			self.powerOff = bStr.read('uintbe:8')
+			self.broken = bStr.read('uintbe:8')
 
 

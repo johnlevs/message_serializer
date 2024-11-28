@@ -28,16 +28,16 @@ PYTHON_TO_BUILTINS = {
 }
 
 BUILTIN_TO_BIT_STRINGS = {
-    U8: "uint:8",
-    U16: "uint:16",
-    U32: "uint:32",
-    U64: "uint:64",
-    I8: "int:8",
-    I16: "int:16",
-    I32: "int:32",
-    I64: "int:64",
-    F32: "float:32",
-    F64: "float:64",
+    U8: "uintbe:8",
+    U16: "uintbe:16",
+    U32: "uintbe:32",
+    U64: "uintbe:64",
+    I8: "intbe:8",
+    I16: "intbe:16",
+    I32: "intbe:32",
+    I64: "intbe:64",
+    F32: "floatbe:32",
+    F64: "floatbe:64",
 }
 
 BUILTIN_TO_PYTHON = {

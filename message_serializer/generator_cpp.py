@@ -1,7 +1,7 @@
 from message_serializer.generator import Generator, logger
 from message_serializer.cpp_config import *
 from message_serializer.parser import is_number
-
+import os
 
 
 def is_cpp_reserved_keywords(name):
@@ -38,7 +38,7 @@ class CppGenerator(Generator):
         for module in self.tree.tree:
             modules += self._generate_module(module)
         # needs to be called after all messages are generated
-        wordIDs = self._generate_wordIDList(self.messageList)
+        wordIDs = self._generate_wordIDList(self.messageList) + "\n"
         max_size_constant = self._get_max_message_size()
 
         self.dedent()
@@ -47,7 +47,7 @@ class CppGenerator(Generator):
             lic
             + includeGuard
             + includes
-            + "namespace ICD {\n"
+            + f"namespace {source_name.upper()} {{\n"
             + wordIDs
             + modules
             + max_size_constant
@@ -60,12 +60,12 @@ class CppGenerator(Generator):
             module_impl = ""
             for message in module["messages"]:
                 module_impl += (
-                    f"{self.tab()}int ICD::{module['name']}::"
+                    f"{self.tab()}int {source_name.upper()}::{module['name']}::"
                     + self._generate_message_serialization(message)
                     + "\n"
                 )
                 module_impl += (
-                    f"{self.tab()}int ICD::{module['name']}::"
+                    f"{self.tab()}int {source_name.upper()}::{module['name']}::"
                     + self._generate_message_deserialization(message)
                     + "\n"
                 )
@@ -84,11 +84,14 @@ class CppGenerator(Generator):
 
         logger.info(f"Copying C++ template files to {output_dir}")
 
+        this_dir = os.path.dirname(os.path.realpath(__file__))
+        template_dir = os.path.join(this_dir, "..", "templates", "cpp")
+
         self._copy_template_file(
-            f"{output_dir}/serializer", "templates/cpp/", "serializer.h"
+            f"{output_dir}/serializer", template_dir, "serializer.h"
         )
         self._copy_template_file(
-            f"{output_dir}/serializer", "templates/cpp/", "serializer.cpp"
+            f"{output_dir}/serializer", template_dir, "serializer.cpp"
         )
 
         # generate code
@@ -100,8 +103,6 @@ class CppGenerator(Generator):
         with open(output_dir + "/" + source_name + ".cpp", "w") as f:
             f.write(impl)
         logger.debug(f"Generated " + output_dir + "/" + source_name + ".cpp")
-
-
 
     def _generate_message(self, message, module):
         line = (
@@ -126,11 +127,11 @@ class CppGenerator(Generator):
             tempDoc = field[DOC] if DOC in field.keys() else ""
             tempDoc = tempDoc.replace('"', "")
             docString += f"{docTab}* @param {field['name']} {tempDoc}\n"
-            if field["type"] == "bitfield" and not bfOpen:
+            if field["type"] == BF and not bfOpen:
                 prevBFname = field[PW]
                 bfOpen = True
                 line += self._open_bitField()
-            elif field["type"] != "bitfield" and bfOpen:
+            elif field["type"] != BF and bfOpen:
                 bfOpen = False
                 bfSize = 0
                 line += self._close_bitfield(bfSize, prevBFname)
@@ -161,7 +162,7 @@ class CppGenerator(Generator):
         line += self.tab() + "static constexpr uint16_t SIZE = "
         prevBFname = None
         for field in message["fields"]:
-            if field["type"] == "bitfield":
+            if field["type"] == BF:
                 if prevBFname != field[PW]:
                     line += f"sizeof({field[PW]}) + "
                 prevBFname = field[PW]
@@ -267,30 +268,12 @@ class CppGenerator(Generator):
 
         self.indent()
         line += self.tab() + f"uint8_t* itr = buffer;\n"
-        bfOpen = False
-        lastBfName = None
-        for field in message["fields"]:
-            if (
-                field["type"] == "bitfield"
-                and not bfOpen
-                or (PW in field.keys() and field[PW] != lastBfName)
-            ):
-                bfOpen = True
-                lastBfName = field[PW]
-            elif bfOpen and field["type"] == "bitfield":
-                continue
-            elif field["type"] != "bitfield" and bfOpen:
-                bfOpen = False
-                lastBfName = None
 
-            if field["count"] != 1 and field["type"] != "bitfield":
-                line += self.tab() + f"for(int i = 0; i < {field['count']}; i++) " "{\n"
-                self.indent()
-                line += self._serialize_parameter(field, serialize=serialize)
-                self.dedent()
-                line += self.tab() + "}\n"
-            else:
-                line += self._serialize_parameter(field, serialize=serialize)
+        line += self._message_field_worker(
+            message=message,
+            on_udf=lambda field: self._serialize_parameter(field, serialize),
+            on_df=lambda field: self._serialize_parameter(field, serialize),
+        )
 
         line += self.tab() + "return itr - buffer;\n"
         self.dedent()
@@ -305,32 +288,31 @@ class CppGenerator(Generator):
             function_hton_call = "deserialize"
 
         line = ""
-        if field["type"] == "bitfield":
-            line += (
-                self.tab() + f"{hton_call}(&{field[PW]}, itr, sizeof({field[PW]}));\n"
-            )
-        elif field["type"] in BUILTIN_TO_CPP.keys():
+        if field["count"] != 1:
+            line += self.tab() + f"for(int i = 0; i < {field['count']}; i++) " "{\n"
+            self.indent()
+
+        if field["type"] in BUILTIN_TO_CPP.keys():
             if field["count"] == 1:
-                line += (
-                    self.tab()
-                    + f"{hton_call}(&{field['name']}, itr, sizeof({field['name']}));\n"
-                )
+                line += f"{self.tab()}{hton_call}(&{field['name']}, itr, sizeof({field['name']}));\n"
             else:
-                line += (
-                    self.tab()
-                    + f"{hton_call}({field['name']}, itr, sizeof({field['name']}[0]));\n"
-                )
+                line += f"{self.tab()}{hton_call}({field['name']}, itr, sizeof({field['name']}[0]));\n"
+
         else:
             line += self.tab() + f"itr += {field['name']}"
             if field["count"] != 1:
                 line += "[i]"
             line += f".{function_hton_call}(itr);\n"
 
+        if field["count"] != 1:
+            self.dedent()
+            line += self.tab() + "}\n"
+
         return line
 
     def _print_variable(self, field):
 
-        if field["type"] == "bitfield":
+        if field["type"] == BF:
             resolvedType = U8CPP
             for key in CPP_TO_BUILTINS.keys():
                 if CPP_TO_BUILTINS[key]["bitLength"] < int(field["count"]):
@@ -354,7 +336,7 @@ class CppGenerator(Generator):
             resolvedType += field["type"]
 
         string = f"{resolvedType} {field['name']}"
-        if field["type"] == "bitfield":
+        if field["type"] == BF:
             string += f" : {field['count']}"
         elif not is_number(field["count"]) or int(field["count"]) > 1:
             string += f"[{field['count']}]"
@@ -415,10 +397,11 @@ class CppGenerator(Generator):
         return line
 
     def _open_bitField(self):
-        line = self.tab() + "struct {\n"
+        line = self.tab() + "union {\n"
         self.indent()
-        line += self.tab() + "union {\n"
+        line += self.tab() + "struct {\n"
         self.indent()
+
         return line
 
     def _get_max_message_size(self):

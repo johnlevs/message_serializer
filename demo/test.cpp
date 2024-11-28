@@ -1,7 +1,7 @@
 // =========================================================================
 // THIS CODE HAS BEEN AUTOMATICALLY GENERATED USING 'message_serializer' TOOL
 //       https://github.com/johnlevs/message_serializer
-//       Generated on: //2024-10-31 02:05:15// 
+//       Generated on: //2024-11-28 12:17:35// 
 // =========================================================================
 // MIT License
 // 
@@ -27,50 +27,54 @@
 
 #include "test.h"
 
-int ICD::LED::ledStatusWord::serialize(uint8_t *buffer) 
+int TEST::LED::ledStatusWord::serialize(uint8_t *buffer) 
 {
 	uint8_t* itr = buffer;
 	for(int i = 0; i < LED_COUNT; i++) {
 		itr += lightStatuses[i].serialize(itr);
 	}
-	HTON(&reserved_0, itr, sizeof(reserved_0));
+	HTON(&connectedToInternet, itr, sizeof(connectedToInternet));
 	HTON(&test, itr, sizeof(test));
 	return itr - buffer;
 }
 
 
-int ICD::LED::ledStatusWord::deserialize(uint8_t *buffer) 
+int TEST::LED::ledStatusWord::deserialize(uint8_t *buffer) 
 {
 	uint8_t* itr = buffer;
 	for(int i = 0; i < LED_COUNT; i++) {
 		itr += lightStatuses[i].deserialize(itr);
 	}
-	NTOH(&reserved_0, itr, sizeof(reserved_0));
+	NTOH(&connectedToInternet, itr, sizeof(connectedToInternet));
 	NTOH(&test, itr, sizeof(test));
 	return itr - buffer;
 }
 
 
-int ICD::LIGHTBULB::lightBulbStatusWord::serialize(uint8_t *buffer) 
+int TEST::LIGHTBULB::lightBulbStatusWord::serialize(uint8_t *buffer) 
 {
 	uint8_t* itr = buffer;
 	HTON(&brightness, itr, sizeof(brightness));
 	HTON(&colorR, itr, sizeof(colorR));
 	HTON(&colorG, itr, sizeof(colorG));
 	HTON(&colorB, itr, sizeof(colorB));
-	HTON(&lightStatus, itr, sizeof(lightStatus));
+	HTON(&powerOn, itr, sizeof(powerOn));
+	HTON(&powerOff, itr, sizeof(powerOff));
+	HTON(&broken, itr, sizeof(broken));
 	return itr - buffer;
 }
 
 
-int ICD::LIGHTBULB::lightBulbStatusWord::deserialize(uint8_t *buffer) 
+int TEST::LIGHTBULB::lightBulbStatusWord::deserialize(uint8_t *buffer) 
 {
 	uint8_t* itr = buffer;
 	NTOH(&brightness, itr, sizeof(brightness));
 	NTOH(&colorR, itr, sizeof(colorR));
 	NTOH(&colorG, itr, sizeof(colorG));
 	NTOH(&colorB, itr, sizeof(colorB));
-	NTOH(&lightStatus, itr, sizeof(lightStatus));
+	NTOH(&powerOn, itr, sizeof(powerOn));
+	NTOH(&powerOff, itr, sizeof(powerOff));
+	NTOH(&broken, itr, sizeof(broken));
 	return itr - buffer;
 }
 

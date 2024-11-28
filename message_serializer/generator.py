@@ -4,6 +4,7 @@ import logging
 
 from abc import ABC, abstractmethod
 from message_serializer.ast import ast
+from message_serializer.lexerConfig import *
 
 
 logger = logging.getLogger("message_serializer")
@@ -15,6 +16,7 @@ class Generator(ABC):
 
     def __init__(self, tree: "ast"):
         self.tree = tree
+        # self.generate_dep_graph()
 
     def tab(self):
         return "\t" * self.tabCount
@@ -42,7 +44,10 @@ class Generator(ABC):
             + self.inlineCommentChar
             + " =========================================================================\n"
         )
-        with open("LICENSE", "r") as f:
+
+        this_dir = os.path.dirname(os.path.realpath(__file__))
+        license_file = os.path.join(this_dir, "..", "LICENSE")
+        with open(license_file, "r") as f:
             for line in f:
                 lic += f"{self.inlineCommentChar} {line}"
 
@@ -59,6 +64,44 @@ class Generator(ABC):
             with open(output_dir + "/" + file_name, "w") as out:
                 out.write(self.get_license())
                 out.write(f.read())
+
+    def _message_field_worker(
+        self,
+        message,
+        on_bf_open=lambda field, *args: "",
+        on_bf_close=lambda field, *args: "",
+        on_bf=lambda field, *args: "",
+        on_udf=lambda field, *args: "",
+        on_df=lambda field, *args: "",
+        *args,
+    ):
+        line = ""
+        bf_name = None
+        bf_open = False
+        for field in message["fields"]:
+            if field["type"] in BUILTINS.keys():
+                if field["type"] == BF:
+                    if not bf_open:
+                        line += on_bf_open(field, *args)
+                        bf_open = True
+                    elif bf_name != field[PW]:
+                        line += on_bf_close(field, *args)
+                        line += on_bf_open(field, *args)
+                    bf_name = field[PW]
+                    line += on_bf(field, *args)
+                else:
+                    if bf_open:
+                        line += on_bf_close(field, *args)
+                        bf_open = False
+                    line += on_df(field, *args)
+            else:
+                if bf_open:
+                    line += on_bf_close(field, *args)
+                    bf_open = False
+                line += on_udf(field, *args)
+        if bf_open:
+            line += on_bf_close(field, *args)
+        return line
 
     @abstractmethod
     def generate(self):

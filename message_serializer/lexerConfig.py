@@ -91,9 +91,9 @@ BUILTINS = {
         "max": np.finfo(np.float64).max,
         "min": np.finfo(np.float64).min,
     },
-    BF: {
-        BITLENGTH: 0,
-        "max": 0,
-        "min": 0,
-    },
+    # BF: {
+    #     BITLENGTH: 0,
+    #     "max": 0,
+    #     "min": 0,
+    # },
 }

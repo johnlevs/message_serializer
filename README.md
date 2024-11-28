@@ -8,7 +8,7 @@ To use this tool, run message_serializer.py in the commandline. Arguments are ne
 python.exe message_serializer.py <input_dir> <output_dir> <output_file_name(s)> [-L <output language> (optional)]
 ```
 
-Currently the only output language supported is C++.
+Currently the only output languages supported are C++ and python.
 
 ### Building the .ICD file:
 
@@ -68,7 +68,7 @@ Valid default types are as follows:
 - f32
 - f64
 
-#### Arrays/Bitfields
+#### Arrays
 
 arrays may be defined as such, and can only be defined as members of messages in the paramType field:
 
@@ -76,6 +76,7 @@ arrays may be defined as such, and can only be defined as members of messages in
 <paramType>[<arraySize>]
 ```
 
+<!--
 bitfields are defined in a similar manner to arrays, and can only be members of messages:
 
 ```ini
@@ -100,22 +101,24 @@ Some other notes:
 - If the size is not specified, the parameter will be assumed to be a single bit
 - BitFields are defined as a union of a struct containing the bitfield and a single integer (or array of bytes), containing the bitfield as a whole.
 - Any bitfields that exceed 64 are union'd with the smallest possible byte array that can contain the bitfield.
-- Any bitfield parameters that exceed 64 bits are thrown out with a warning
+- Any bitfield parameters that exceed 64 bits are thrown out with a warning -->
 
 #### References
 
 references to other messages may be made by using the message name as the paramType and long as they are defined in the scope of the files passed to the ICDBuilder
 
-
 ## Example:
 
 ### File Setup
-An two example .icd files can be found in the ```demo``` folder. The example is a little rough around the edges but it supposed to show how you might define different elements.
+
+An two example .icd files can be found in the `demo` folder. The example is a little rough around the edges but it supposed to show how you might define different elements.
+
 - led.icd
 - lightbulb.icd
+
 #### lightbulb.icd
 
-This file defines a ```lightBulbStatusWord``` struct. You can see the member definitions below:
+This file defines a `lightBulbStatusWord` struct. You can see the member definitions below:
 
 ```ini
 MSG lightBulbStatusWord                         -Doc "I contain the status of a light bulb" 
@@ -124,48 +127,61 @@ MSG lightBulbStatusWord                         -Doc "I contain the status of a 
     colorR u8                                -Doc "The color of the light bulb"
     colorG u8                                -Doc "The color of the light bulb"
     colorB u8                                -Doc "The color of the light bulb"
-    powerOn bitfield[1]        -PW lightStatus   -Doc  "The power state of the light bulb" 
-    powerOff bitfield[3]       -PW lightStatus   -Doc "The power state of the light bulb" 
-    broken bitfield[1]         -PW lightStatus   -Doc "True (1) if the light bulb is broken" 
-
-    
+    powerOn u8                              -Doc  "The power state of the light bulb" 
+    powerOff u8                             -Doc "The power state of the light bulb" 
+    broken u8                               -Doc "True (1) if the light bulb is broken" 
 }
 ```
 
 #### led.icd
+
 led.icd defines a few things:
-- A constant ```LED_COUNT``` set to a value of 2, with a byte size of 1 byte
-- A List of states, ```ON``` and ```OFF```
-- A Message containing an array of the previously defined ```lightbulbStatusWord``` 
+
+- A constant `LED_COUNT` set to a value of 2, with a byte size of 1 byte
+- A List of states, `ON` and `OFF`
+- A Message containing an array of the previously defined `lightbulbStatusWord`
+
 ```ini
 CONSTANT LED_COUNT u8 = 2
+
+MSG ledStatusWord                                       -Doc "I contain the status of a 20 led light strip"
+{
+    lightStatuses lightBulbStatusWord[LED_COUNT]        -Doc "The status of each light bulb in the strip"
+    connectedToInternet u8                               -Doc "True (1) if the light bulb is connected to the internet"
+    test u8 = OFF
+}
 
 STATE states{
     ON
     OFF
-}
-
-MSG ledStatusWord                                       -Doc "I contain the status of a 20 led light strip" 
-{
-    lightStatuses lightBulbStatusWord[LED_COUNT]        -Doc "The status of each light bulb in the strip"
-    connectedToInternet bitfield[1]                     -Doc "True (1) if the light bulb is connected to the internet"
-    test u8 = OFF
 }
 ```
 
 ### Code Generation
 
 Running:
+
 ```bash
 python.exe message_serialize.py demo demo message -L cpp
 ```
+
 Will scan the `demo` directory for `.icd` files and produce the following files (again in the `demo` directory):
+
 - message.h
 - message.cpp
 
 `States` get converted to `enums`, and constants are converted to `constexpr`. The Message is converted to a struct. Each file exists in it's own namespace to avoid naming conflicts. Here is what led.icd generates:
 
 ```cpp
+namespace TEST {
+	enum class wordIDs {
+		LED__LEDSTATUSWORD,
+		LIGHTBULB__LIGHTBULBSTATUSWORD,
+
+		WORDID_COUNT,
+		INVALID_WORDID = 0xFFFF
+	};
+
 	namespace LED {
 		constexpr uint8_t LED_COUNT = 2;
 
@@ -179,34 +195,44 @@ Will scan the `demo` directory for `.icd` files and produce the following files 
 		* @brief I contain the status of a 20 led light strip
 		* @param lightStatuses The status of each light bulb in the strip
 		* @param connectedToInternet True (1) if the light bulb is connected to the internet
-		* @param __ledStatusWord_pad_0 
-		* @param test 
+		* @param test
 		*/
-		typedef struct ledStatusWord : public serializableMessage {
+		struct ledStatusWord : public serializableMessage {
 			/******************************************** USER DATA ********************************************/
 
 			LIGHTBULB::lightBulbStatusWord lightStatuses[LED_COUNT];	// The status of each light bulb in the strip
-			struct {
-				union {
-					uint8_t connectedToInternet : 1;	// True (1) if the light bulb is connected to the internet
-					uint8_t __ledStatusWord_pad_0 : 7;
-				};
-				uint8_t reserved_0;
-			};
-			uint8_t test = OFF;
+			uint8_t connectedToInternet;	// True (1) if the light bulb is connected to the internet
+			uint8_t test = LED::states::OFF;
 			/******************************************** SERIALIZATION ********************************************/
 
-			static constexpr uint16_t SIZE = LIGHTBULB::lightBulbStatusWord::SIZE * LED_COUNT + sizeof(reserved_0) + sizeof(test) + 0;
+			static constexpr uint16_t SIZE = LIGHTBULB::lightBulbStatusWord::SIZE * LED_COUNT + sizeof(connectedToInternet) + sizeof(test) + 0;
 			static constexpr wordIDs WORDID = wordIDs::LED__LEDSTATUSWORD;
 			int serialize(uint8_t *buffer) override;
 			int deserialize(uint8_t *buffer) override;
 		};
 	}; // namespace LED
-```
-A few extra felids are added:
-- `SIZE` is a constant value which contains the actual size of an equivalent byte array containing all the field data. (sum of the size of all the felids, excludes any padding, ect...)
-- `wordID` returns an enumerated value of the word ID. Those are defined at the top of the header file (see below). WordIds are prefixed with the namespace to avoid conflicts due to the global scope.
+    .
+    .
+    .
 
+	constexpr uint16_t __max_message_size()
+	{
+		uint16_t max = 0;
+		max = (LED::ledStatusWord::SIZE > max) ? LED::ledStatusWord::SIZE : max;
+		max = (LIGHTBULB::lightBulbStatusWord::SIZE > max) ? LIGHTBULB::lightBulbStatusWord::SIZE : max;
+		return max;
+	}
+
+	constexpr uint16_t MAX_MESSAGE_SIZE = __max_message_size();
+
+}; // namespace TEST
+```
+
+A few extra field are added:
+
+- `SIZE` is a constant value which contains the actual size of an equivalent byte array containing all the field data. (sum of the size of all the fields, excludes any padding, ect...)
+- `wordID` returns an enumerated value of the word ID. Those are defined at the top of the header file (see below). WordIds are prefixed with the namespace to avoid conflicts due to the global scope.
+- `MAX_MESSAGE_SIZE` is a constant defined in the global message namespace which contains the max size in bytes of all the messages processed.
 
 ```cpp
     enum class wordIDs {
@@ -219,28 +245,87 @@ A few extra felids are added:
 ```
 
 The `serialize()` and `deserialize()` methods are defined in the `message.cpp` file:
+
 ```cpp
-int ICD::LED::ledStatusWord::serialize(uint8_t *buffer) 
+int TEST::LED::ledStatusWord::serialize(uint8_t *buffer)
 {
 	uint8_t* itr = buffer;
 	for(int i = 0; i < LED_COUNT; i++) {
-		itr += lightStatuses[i].serialize(buffer);
+		itr += lightStatuses[i].serialize(itr);
 	}
-	HTON(&reserved_0, buffer, sizeof(reserved_0));
-	HTON(&test, buffer, sizeof(test));
+	HTON(&connectedToInternet, itr, sizeof(connectedToInternet));
+	HTON(&test, itr, sizeof(test));
 	return itr - buffer;
 }
 
 
-int ICD::LED::ledStatusWord::deserialize(uint8_t *buffer) 
+int TEST::LED::ledStatusWord::deserialize(uint8_t *buffer)
 {
 	uint8_t* itr = buffer;
 	for(int i = 0; i < LED_COUNT; i++) {
-		itr += lightStatuses[i].deserialize(buffer);
+		itr += lightStatuses[i].deserialize(itr);
 	}
-	NTOH(&reserved_0, buffer, sizeof(reserved_0));
-	NTOH(&test, buffer, sizeof(test));
+	NTOH(&connectedToInternet, itr, sizeof(connectedToInternet));
+	NTOH(&test, itr, sizeof(test));
 	return itr - buffer;
 }
+
 ```
 
+For reference, here is the equivalent generated python code:
+
+```python
+
+
+class wordIds:
+	LED_LEDSTATUSWORD = 0
+	LIGHTBULB_LIGHTBULBSTATUSWORD = 1
+
+class LED:
+
+	LED_COUNT: np.uint8 = 2
+
+	class states:
+		ON = 0
+		OFF = 1
+
+	class ledStatusWord(serializableMessage):
+		"""
+		I contain the status of a 20 led light strip
+			:param lightStatuses: The status of each light bulb in the strip
+			:type lightStatuses: LIGHTBULB.lightBulbStatusWord
+			:param connectedToInternet: True (1) if the light bulb is connected to the internet
+			:type connectedToInternet: np.uint8
+			:param test:
+			:type test: np.uint8
+
+ 		"""
+		"""############################################ USER DATA ############################################"""
+
+		lightStatuses: List['LIGHTBULB.lightBulbStatusWord']
+		"""		The status of each light bulb in the strip		"""
+		connectedToInternet: np.uint8
+		"""		True (1) if the light bulb is connected to the internet		"""
+		test: np.uint8
+		"""		"""
+		"""########################################## SERIALIZATION ##########################################"""
+
+		def __init__(self):
+			self.lightStatuses = [LIGHTBULB.lightBulbStatusWord() for _ in range(LED.LED_COUNT)]
+			self.test = LED.states.OFF
+
+		def serialize(self) -> bytes:
+			bStr = BitStream()
+			for i in range(LED.LED_COUNT):
+				bStr.append(BitArray(bytes=self.lightStatuses[i].serialize()))
+			bStr.append(BitStream(uint=self.connectedToInternet, length=8))
+			bStr.append(BitStream(uint=self.test, length=8))
+			return bStr.bytes
+
+		def deserialize(self, byteArr):
+			bStr = BitStream(bytes=byteArr)
+			for i in range(LED.LED_COUNT):
+				self.lightStatuses[i].deserialize(bStr)
+			self.connectedToInternet = bStr.read('uintbe:8')
+			self.test = bStr.read('uintbe:8')
+```

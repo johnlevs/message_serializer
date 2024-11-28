@@ -4,9 +4,7 @@ MSG lightBulbStatusWord                         -Doc "I contain the status of a 
     colorR u8                                -Doc "The color of the light bulb"
     colorG u8                                -Doc "The color of the light bulb"
     colorB u8                                -Doc "The color of the light bulb"
-    powerOn bitfield[1]        -PW lightStatus   -Doc  "The power state of the light bulb" 
-    powerOff bitfield[3]       -PW lightStatus   -Doc "The power state of the light bulb" 
-    broken bitfield[1]         -PW lightStatus   -Doc "True (1) if the light bulb is broken" 
-
-    
+    powerOn u8                              -Doc  "The power state of the light bulb" 
+    powerOff u8                             -Doc "The power state of the light bulb" 
+    broken u8                               -Doc "True (1) if the light bulb is broken" 
 }
