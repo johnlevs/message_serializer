@@ -15,8 +15,7 @@ class Generator(ABC):
     inlineCommentChar = "#"
 
     def __init__(self, tree: "ast"):
-        self.tree = tree
-        # self.generate_dep_graph()
+        self.ast_tree = tree
 
     def tab(self):
         return "\t" * self.tabCount
@@ -78,59 +77,33 @@ class Generator(ABC):
         line = ""
         bf_name = None
         bf_open = False
+        bf_size = 0
         for field in message["fields"]:
             if field["type"] in BUILTINS.keys():
                 if field["type"] == BF:
                     if not bf_open:
-                        line += on_bf_open(field, *args)
+                        line += on_bf_open(field, bf_name, bf_size, *args)
                         bf_open = True
                     elif bf_name != field[PW]:
-                        line += on_bf_close(field, *args)
-                        line += on_bf_open(field, *args)
+                        line += on_bf_close(field, bf_name, bf_size, *args)
+                        line += on_bf_open(field, bf_name, bf_size, *args)
                     bf_name = field[PW]
-                    line += on_bf(field, *args)
+                    line += on_bf(field, bf_name, bf_size, *args)
+                    bf_size += int(field["count"])
                 else:
                     if bf_open:
-                        line += on_bf_close(field, *args)
+                        line += on_bf_close(field, bf_name, bf_size, *args)
                         bf_open = False
-                    line += on_df(field, *args)
+                        bf_size = 0
+                    line += on_df(field, bf_name, bf_size, *args)
             else:
                 if bf_open:
-                    line += on_bf_close(field, *args)
+                    line += on_bf_close(field, bf_name, bf_size, *args)
                     bf_open = False
-                line += on_udf(field, *args)
+                    bf_size = 0
+                line += on_udf(field, bf_name, bf_size, *args)
         if bf_open:
-            line += on_bf_close(field, *args)
+            line += on_bf_close(field, bf_name, bf_size, *args)
         return line
 
-    @abstractmethod
-    def generate(self):
-        pass
-
-    @abstractmethod
-    def _generate_message(self, message):
-        pass
-
-    @abstractmethod
-    def _generate_enum(self, enum):
-        pass
-
-    @abstractmethod
-    def _generate_constants(self, constant):
-        pass
-
-    @abstractmethod
-    def _generate_module(self, module):
-        pass
-
-    @abstractmethod
-    def _generate_message_serialization_helper(self, message):
-        pass
-
-    @abstractmethod
-    def _generate_message_deserialization(self, message):
-        pass
-
-    @abstractmethod
-    def generate_source_files(self, output_dir, source_name=None):
-        pass
+   

@@ -1,7 +1,7 @@
 // =========================================================================
 // THIS CODE HAS BEEN AUTOMATICALLY GENERATED USING 'message_serializer' TOOL
 //       https://github.com/johnlevs/message_serializer
-//       Generated on: //2024-11-28 12:17:35// 
+//       Generated on: //2024-11-29 21:33:16// 
 // =========================================================================
 // MIT License
 // 
@@ -25,33 +25,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "test.h"
+#include "demo.h"
 
-int TEST::LED::ledStatusWord::serialize(uint8_t *buffer) 
-{
-	uint8_t* itr = buffer;
-	for(int i = 0; i < LED_COUNT; i++) {
-		itr += lightStatuses[i].serialize(itr);
-	}
-	HTON(&connectedToInternet, itr, sizeof(connectedToInternet));
-	HTON(&test, itr, sizeof(test));
-	return itr - buffer;
-}
-
-
-int TEST::LED::ledStatusWord::deserialize(uint8_t *buffer) 
-{
-	uint8_t* itr = buffer;
-	for(int i = 0; i < LED_COUNT; i++) {
-		itr += lightStatuses[i].deserialize(itr);
-	}
-	NTOH(&connectedToInternet, itr, sizeof(connectedToInternet));
-	NTOH(&test, itr, sizeof(test));
-	return itr - buffer;
-}
-
-
-int TEST::LIGHTBULB::lightBulbStatusWord::serialize(uint8_t *buffer) 
+int DEMO::LIGHTBULB::lightBulbStatusWord::serialize(uint8_t *buffer) 
 {
 	uint8_t* itr = buffer;
 	HTON(&brightness, itr, sizeof(brightness));
@@ -65,7 +41,7 @@ int TEST::LIGHTBULB::lightBulbStatusWord::serialize(uint8_t *buffer)
 }
 
 
-int TEST::LIGHTBULB::lightBulbStatusWord::deserialize(uint8_t *buffer) 
+int DEMO::LIGHTBULB::lightBulbStatusWord::deserialize(uint8_t *buffer) 
 {
 	uint8_t* itr = buffer;
 	NTOH(&brightness, itr, sizeof(brightness));
@@ -75,6 +51,30 @@ int TEST::LIGHTBULB::lightBulbStatusWord::deserialize(uint8_t *buffer)
 	NTOH(&powerOn, itr, sizeof(powerOn));
 	NTOH(&powerOff, itr, sizeof(powerOff));
 	NTOH(&broken, itr, sizeof(broken));
+	return itr - buffer;
+}
+
+
+int DEMO::LED::ledStatusWord::serialize(uint8_t *buffer) 
+{
+	uint8_t* itr = buffer;
+	for(int i = 0; i < LED_COUNT; i++) {
+		itr += lightStatuses[i].serialize(itr);
+	}
+	HTON(&connectedToInternet, itr, sizeof(connectedToInternet));
+	HTON(&test, itr, sizeof(test));
+	return itr - buffer;
+}
+
+
+int DEMO::LED::ledStatusWord::deserialize(uint8_t *buffer) 
+{
+	uint8_t* itr = buffer;
+	for(int i = 0; i < LED_COUNT; i++) {
+		itr += lightStatuses[i].deserialize(itr);
+	}
+	NTOH(&connectedToInternet, itr, sizeof(connectedToInternet));
+	NTOH(&test, itr, sizeof(test));
 	return itr - buffer;
 }
 

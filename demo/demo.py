@@ -1,7 +1,7 @@
 # =========================================================================
 # THIS CODE HAS BEEN AUTOMATICALLY GENERATED USING 'message_serializer' TOOL
 #       https://github.com/johnlevs/message_serializer
-#       Generated on: #2024-11-29 18:45:25# 
+#       Generated on: #2024-11-29 21:33:17# 
 # =========================================================================
 # MIT License
 # 
@@ -60,13 +60,11 @@ class LIGHTBULB:
 			:param colorB: The color of the light bulb
 			:type colorB: np.uint8
 			:param powerOn: The power state of the light bulb
-			:type powerOn: np.int8
+			:type powerOn: np.uint8
 			:param powerOff: The power state of the light bulb
-			:type powerOff: np.int8
+			:type powerOff: np.uint8
 			:param broken: True (1) if the light bulb is broken
-			:type broken: np.int8
-			:param __lightBulbStatusWord_pad_0: 
-			:type __lightBulbStatusWord_pad_0: np.int8
+			:type broken: np.uint8
 
  		"""
 		"""############################################ USER DATA ############################################"""
@@ -79,14 +77,12 @@ class LIGHTBULB:
 		"""		The color of the light bulb		"""
 		colorB: np.uint8
 		"""		The color of the light bulb		"""
-		powerOn: np.int8
+		powerOn: np.uint8
 		"""		The power state of the light bulb		"""
-		powerOff: np.int8
+		powerOff: np.uint8
 		"""		The power state of the light bulb		"""
-		broken: np.int8
+		broken: np.uint8
 		"""		True (1) if the light bulb is broken		"""
-		_lightBulbStatusWord_pad_0: np.int8
-		"""		"""
 		"""########################################## SERIALIZATION ##########################################"""
 
 		def __init__(self):
@@ -97,7 +93,6 @@ class LIGHTBULB:
 			self.powerOn = 0
 			self.powerOff = 0
 			self.broken = 0
-			self._lightBulbStatusWord_pad_0 = 0
 
 
 		def serialize(self) -> bytes:
@@ -106,12 +101,9 @@ class LIGHTBULB:
 			bStr.append(BitStream(uint=self.colorR, length=8))
 			bStr.append(BitStream(uint=self.colorG, length=8))
 			bStr.append(BitStream(uint=self.colorB, length=8))
-			bfBstr = BitStream()
-			bfBstr.append(BitStream(uint=self.powerOn, length=2))
-			bfBstr.append(BitStream(uint=self.powerOff, length=2))
-			bfBstr.append(BitStream(uint=self.broken, length=2))
-			bfBstr.append(BitStream(uint=self._lightBulbStatusWord_pad_0, length=2))
-			bStr.append(self.reverse_bits(bfBstr))
+			bStr.append(BitStream(uint=self.powerOn, length=8))
+			bStr.append(BitStream(uint=self.powerOff, length=8))
+			bStr.append(BitStream(uint=self.broken, length=8))
 			return bStr.bytes
 
 		def deserialize(self, byteArr):
@@ -120,10 +112,9 @@ class LIGHTBULB:
 			self.colorR = bStr.read('uintbe:8')
 			self.colorG = bStr.read('uintbe:8')
 			self.colorB = bStr.read('uintbe:8')
-			self.powerOn = bStr.read('uint:2')
-			self.powerOff = bStr.read('uint:2')
-			self.broken = bStr.read('uint:2')
-			self._lightBulbStatusWord_pad_0 = bStr.read('uint:2')
+			self.powerOn = bStr.read('uintbe:8')
+			self.powerOff = bStr.read('uintbe:8')
+			self.broken = bStr.read('uintbe:8')
 
 
 class LED:

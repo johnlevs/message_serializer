@@ -1,7 +1,9 @@
+CONSTANT LIGHTBULB_COUNT u8 = 2
+
 MSG lightBulbStatusWord                         -Doc "I contain the status of a light bulb" 
 {
     brightness u8          = 5                  -Doc "The brightness of the light bulb"
-    colorR u8                                -Doc "The color of the light bulb"
+    colorR u8                                   -Doc "The color of the light bulb"
     colorG u8                                -Doc "The color of the light bulb"
     colorB u8                                -Doc "The color of the light bulb"
     powerOn u8                              -Doc  "The power state of the light bulb" 

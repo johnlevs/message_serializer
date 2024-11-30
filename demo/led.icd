@@ -1,4 +1,4 @@
-CONSTANT LED_COUNT u8 = 2
+CONSTANT LED_COUNT u8 = LIGHTBULB_COUNT
 
 MSG ledStatusWord                                       -Doc "I contain the status of a 20 led light strip" 
 {

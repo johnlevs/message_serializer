@@ -1,7 +1,7 @@
 // =========================================================================
 // THIS CODE HAS BEEN AUTOMATICALLY GENERATED USING 'message_serializer' TOOL
 //       https://github.com/johnlevs/message_serializer
-//       Generated on: //2024-11-28 12:17:35// 
+//       Generated on: //2024-11-29 21:33:16// 
 // =========================================================================
 // MIT License
 // 
@@ -25,24 +25,29 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef _TEST_H_
-#define _TEST_H_
+#ifndef _DEMO_H_
+#define _DEMO_H_
 
 #include "serializer/serializer.h"
 
 #include <stdint.h>
 
-namespace TEST {
+namespace DEMO {
 	enum class wordIDs {
-		LED__LEDSTATUSWORD,
 		LIGHTBULB__LIGHTBULBSTATUSWORD,
+		LED__LEDSTATUSWORD,
 
 		WORDID_COUNT,
 		INVALID_WORDID = 0xFFFF
 	};
 
+	namespace LIGHTBULB {
+		constexpr uint8_t LIGHTBULB_COUNT = 2;
+
+	}; // namespace LIGHTBULB
+
 	namespace LED {
-		constexpr uint8_t LED_COUNT = 2;
+		constexpr uint8_t LED_COUNT = LIGHTBULB::LIGHTBULB_COUNT;
 
 		enum states {
 			ON,
@@ -50,25 +55,6 @@ namespace TEST {
 		}; // enum states
 
 
-		/**
-		* @brief I contain the status of a 20 led light strip
-		* @param lightStatuses The status of each light bulb in the strip
-		* @param connectedToInternet True (1) if the light bulb is connected to the internet
-		* @param test 
-		*/
-		struct ledStatusWord : public serializableMessage {
-			/******************************************** USER DATA ********************************************/
-
-			LIGHTBULB::lightBulbStatusWord lightStatuses[LED_COUNT];	// The status of each light bulb in the strip
-			uint8_t connectedToInternet;	// True (1) if the light bulb is connected to the internet
-			uint8_t test = LED::states::OFF;
-			/******************************************** SERIALIZATION ********************************************/
-
-			static constexpr uint16_t SIZE = LIGHTBULB::lightBulbStatusWord::SIZE * LED_COUNT + sizeof(connectedToInternet) + sizeof(test) + 0;
-			static constexpr wordIDs WORDID = wordIDs::LED__LEDSTATUSWORD;
-			int serialize(uint8_t *buffer) override;
-			int deserialize(uint8_t *buffer) override;
-		};
 	}; // namespace LED
 
 	namespace LIGHTBULB {
@@ -99,19 +85,43 @@ namespace TEST {
 			int serialize(uint8_t *buffer) override;
 			int deserialize(uint8_t *buffer) override;
 		};
+
 	}; // namespace LIGHTBULB
+
+	namespace LED {
+		/**
+		* @brief I contain the status of a 20 led light strip
+		* @param lightStatuses The status of each light bulb in the strip
+		* @param connectedToInternet True (1) if the light bulb is connected to the internet
+		* @param test 
+		*/
+		struct ledStatusWord : public serializableMessage {
+			/******************************************** USER DATA ********************************************/
+
+			LIGHTBULB::lightBulbStatusWord lightStatuses[LED_COUNT];	// The status of each light bulb in the strip
+			uint8_t connectedToInternet;	// True (1) if the light bulb is connected to the internet
+			uint8_t test = LED::states::OFF;
+			/******************************************** SERIALIZATION ********************************************/
+
+			static constexpr uint16_t SIZE = LIGHTBULB::lightBulbStatusWord::SIZE  * LED::LED_COUNT + sizeof(connectedToInternet) + sizeof(test) + 0;
+			static constexpr wordIDs WORDID = wordIDs::LED__LEDSTATUSWORD;
+			int serialize(uint8_t *buffer) override;
+			int deserialize(uint8_t *buffer) override;
+		};
+
+	}; // namespace LED
 
 	constexpr uint16_t __max_message_size()
 	{
 		uint16_t max = 0;
-		max = (LED::ledStatusWord::SIZE > max) ? LED::ledStatusWord::SIZE : max;
 		max = (LIGHTBULB::lightBulbStatusWord::SIZE > max) ? LIGHTBULB::lightBulbStatusWord::SIZE : max;
+		max = (LED::ledStatusWord::SIZE > max) ? LED::ledStatusWord::SIZE : max;
 		return max;
 	}
 
 	constexpr uint16_t MAX_MESSAGE_SIZE = __max_message_size();
 
-} // namespace icd
+} // namespace DEMO
 
-#endif	//_TEST_H_
+#endif	//_DEMO_H_
 
