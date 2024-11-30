@@ -107,12 +107,12 @@ if __name__ == "__main__":
 
     # sys.tracebacklimit = 0
     # Directory._debug = True
-    try:
-        D = Directory(args.I)
-        tree, error_count = D.validate()
-    except Exception as e:
-        logger.fatal(f"Error: {e}")
-        exit(1)
+    # try:
+    D = Directory(args.I)
+    tree, error_count = D.validate()
+    # except Exception as e:
+    #     logger.fatal(f"Error: {e}")
+    #     exit(1)
 
     if error_count > 0:
         logger.error("Validation failed")
