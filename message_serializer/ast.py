@@ -11,7 +11,7 @@ logger = logging.getLogger("message_serializer")
 class ast:
     def __init__(self, jsonTree):
         self.tree = jsonTree
-        self.sortedTree = self.__sort_tree()
+        self.tree = self.__sort_tree()
         self.messages_sorted = self.topological_message_sort()
         self.constants_sorted = self.topological_const_sort()
 
@@ -47,7 +47,7 @@ class ast:
             and element_name != "messages"
         ):
             return None
-        tree = self.sortedTree[module_ndx][element_name]
+        tree = self.tree[module_ndx][element_name]
         low = 0
         high = len(tree) - 1
         while low <= high:
@@ -102,7 +102,7 @@ class ast:
 
     def find_member(self, name):
         hierarchy = [None, None, None]
-        for module_ndx, module in enumerate(self.sortedTree):
+        for module_ndx, module in enumerate(self.tree):
 
             logging.debug(f"Searching for {name} in module {module['name']}")
 
