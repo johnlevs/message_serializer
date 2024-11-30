@@ -170,20 +170,25 @@ Will scan the `demo` directory for `.icd` files and produce the following files 
 - message.h
 - message.cpp
 
-`States` get converted to `enums`, and constants are converted to `constexpr`. The Message is converted to a struct. Each file exists in it's own namespace to avoid naming conflicts. Here is what led.icd generates:
+`States` get converted to `enums`, and constants are converted to `constexpr`. The Message is converted to a struct. Each file exists in it's own namespace to avoid naming conflicts. Here is an example of what the demo files generate:
 
 ```cpp
-namespace TEST {
+namespace DEMO {
 	enum class wordIDs {
-		LED__LEDSTATUSWORD,
 		LIGHTBULB__LIGHTBULBSTATUSWORD,
+		LED__LEDSTATUSWORD,
 
 		WORDID_COUNT,
 		INVALID_WORDID = 0xFFFF
 	};
 
+	namespace LIGHTBULB {
+		constexpr uint8_t LIGHTBULB_COUNT = 2;
+
+	}; // namespace LIGHTBULB
+
 	namespace LED {
-		constexpr uint8_t LED_COUNT = 2;
+		constexpr uint8_t LED_COUNT = LIGHTBULB::LIGHTBULB_COUNT;
 
 		enum states {
 			ON,
@@ -191,26 +196,37 @@ namespace TEST {
 		}; // enum states
 
 
+	}; // namespace LED
+
+	namespace LIGHTBULB {
 		/**
-		* @brief I contain the status of a 20 led light strip
-		* @param lightStatuses The status of each light bulb in the strip
-		* @param connectedToInternet True (1) if the light bulb is connected to the internet
-		* @param test
+		* @brief I contain the status of a light bulb
+		* @param brightness The brightness of the light bulb
+		* @param colorR The color of the light bulb
+		* @param colorG The color of the light bulb
+		* @param colorB The color of the light bulb
+		* @param powerOn The power state of the light bulb
+		* @param powerOff The power state of the light bulb
+		* @param broken True (1) if the light bulb is broken
 		*/
-		struct ledStatusWord : public serializableMessage {
+		struct lightBulbStatusWord : public serializableMessage {
 			/******************************************** USER DATA ********************************************/
 
-			LIGHTBULB::lightBulbStatusWord lightStatuses[LED_COUNT];	// The status of each light bulb in the strip
-			uint8_t connectedToInternet;	// True (1) if the light bulb is connected to the internet
-			uint8_t test = LED::states::OFF;
+			uint8_t brightness = 5;	// The brightness of the light bulb
+			uint8_t colorR;	// The color of the light bulb
+			uint8_t colorG;	// The color of the light bulb
+			uint8_t colorB;	// The color of the light bulb
+			uint8_t powerOn;	// The power state of the light bulb
+			uint8_t powerOff;	// The power state of the light bulb
+			uint8_t broken;	// True (1) if the light bulb is broken
 			/******************************************** SERIALIZATION ********************************************/
 
-			static constexpr uint16_t SIZE = LIGHTBULB::lightBulbStatusWord::SIZE * LED_COUNT + sizeof(connectedToInternet) + sizeof(test) + 0;
-			static constexpr wordIDs WORDID = wordIDs::LED__LEDSTATUSWORD;
+			static constexpr uint16_t SIZE = sizeof(brightness) + sizeof(colorR) + sizeof(colorG) + sizeof(colorB) + sizeof(powerOn) + sizeof(powerOff) + sizeof(broken) + 0;
+			static constexpr wordIDs WORDID = wordIDs::LIGHTBULB__LIGHTBULBSTATUSWORD;
 			int serialize(uint8_t *buffer) override;
 			int deserialize(uint8_t *buffer) override;
 		};
-	}; // namespace LED
+	}; // namespace LIGHTBULB
     .
     .
     .
@@ -227,6 +243,7 @@ namespace TEST {
 
 }; // namespace TEST
 ```
+Note that the elements are ordered such that dependencies are satisfied
 
 A few extra field are added:
 
@@ -277,55 +294,91 @@ For reference, here is the equivalent generated python code:
 ```python
 
 
+
 class wordIds:
 	LED_LEDSTATUSWORD = 0
 	LIGHTBULB_LIGHTBULBSTATUSWORD = 1
 
-class LED:
+class LIGHTBULB:
+	LIGHTBULB_COUNT: np.uint8 = 2
 
-	LED_COUNT: np.uint8 = 2
+
+class LED:
+	LED_COUNT: np.uint8 = LIGHTBULB.LIGHTBULB_COUNT
+
 
 	class states:
 		ON = 0
 		OFF = 1
 
-	class ledStatusWord(serializableMessage):
+
+class LIGHTBULB:
+	class lightBulbStatusWord(serializableMessage):
 		"""
-		I contain the status of a 20 led light strip
-			:param lightStatuses: The status of each light bulb in the strip
-			:type lightStatuses: LIGHTBULB.lightBulbStatusWord
-			:param connectedToInternet: True (1) if the light bulb is connected to the internet
-			:type connectedToInternet: np.uint8
-			:param test:
-			:type test: np.uint8
+		I contain the status of a light bulb
+			:param brightness: The brightness of the light bulb
+			:type brightness: np.uint8
+			:param colorR: The color of the light bulb
+			:type colorR: np.uint8
+			:param colorG: The color of the light bulb
+			:type colorG: np.uint8
+			:param colorB: The color of the light bulb
+			:type colorB: np.uint8
+			:param powerOn: The power state of the light bulb
+			:type powerOn: np.uint8
+			:param powerOff: The power state of the light bulb
+			:type powerOff: np.uint8
+			:param broken: True (1) if the light bulb is broken
+			:type broken: np.uint8
 
  		"""
 		"""############################################ USER DATA ############################################"""
 
-		lightStatuses: List['LIGHTBULB.lightBulbStatusWord']
-		"""		The status of each light bulb in the strip		"""
-		connectedToInternet: np.uint8
-		"""		True (1) if the light bulb is connected to the internet		"""
-		test: np.uint8
-		"""		"""
+		brightness: np.uint8
+		"""		The brightness of the light bulb		"""
+		colorR: np.uint8
+		"""		The color of the light bulb		"""
+		colorG: np.uint8
+		"""		The color of the light bulb		"""
+		colorB: np.uint8
+		"""		The color of the light bulb		"""
+		powerOn: np.uint8
+		"""		The power state of the light bulb		"""
+		powerOff: np.uint8
+		"""		The power state of the light bulb		"""
+		broken: np.uint8
+		"""		True (1) if the light bulb is broken		"""
 		"""########################################## SERIALIZATION ##########################################"""
 
 		def __init__(self):
-			self.lightStatuses = [LIGHTBULB.lightBulbStatusWord() for _ in range(LED.LED_COUNT)]
-			self.test = LED.states.OFF
+			self.brightness = 5
+			self.colorR = 0
+			self.colorG = 0
+			self.colorB = 0
+			self.powerOn = 0
+			self.powerOff = 0
+			self.broken = 0
+
 
 		def serialize(self) -> bytes:
 			bStr = BitStream()
-			for i in range(LED.LED_COUNT):
-				bStr.append(BitArray(bytes=self.lightStatuses[i].serialize()))
-			bStr.append(BitStream(uint=self.connectedToInternet, length=8))
-			bStr.append(BitStream(uint=self.test, length=8))
+			bStr.append(BitStream(uint=self.brightness, length=8))
+			bStr.append(BitStream(uint=self.colorR, length=8))
+			bStr.append(BitStream(uint=self.colorG, length=8))
+			bStr.append(BitStream(uint=self.colorB, length=8))
+			bStr.append(BitStream(uint=self.powerOn, length=8))
+			bStr.append(BitStream(uint=self.powerOff, length=8))
+			bStr.append(BitStream(uint=self.broken, length=8))
 			return bStr.bytes
 
 		def deserialize(self, byteArr):
 			bStr = BitStream(bytes=byteArr)
-			for i in range(LED.LED_COUNT):
-				self.lightStatuses[i].deserialize(bStr)
-			self.connectedToInternet = bStr.read('uintbe:8')
-			self.test = bStr.read('uintbe:8')
+			self.brightness = bStr.read('uintbe:8')
+			self.colorR = bStr.read('uintbe:8')
+			self.colorG = bStr.read('uintbe:8')
+			self.colorB = bStr.read('uintbe:8')
+			self.powerOn = bStr.read('uintbe:8')
+			self.powerOff = bStr.read('uintbe:8')
+			self.broken = bStr.read('uintbe:8')
+
 ```
