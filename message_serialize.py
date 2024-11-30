@@ -4,8 +4,7 @@ import argparse
 import logging
 
 from message_serializer.directory import Directory
-from message_serializer.generator_cpp import CppGenerator
-
+from message_serializer.code_generators import pythonGenerator, CppGenerator
 
 # Define command line arguments
 arguments = [
@@ -28,7 +27,7 @@ arguments = [
         "name": "-L",
         "metavar": "--lang",
         "help": "Language for generated code",
-        "choices": ["cpp"],
+        "choices": ["cpp", "python"],
         "default": "cpp",
     },
 ]
@@ -81,7 +80,6 @@ if __name__ == "__main__":
     )
     session_file_handler.setLevel(logging.DEBUG)
 
-
     log_file_handler = logging.FileHandler(
         "log/message_serialize.log",
         mode="a",
@@ -109,19 +107,21 @@ if __name__ == "__main__":
 
     # sys.tracebacklimit = 0
     # Directory._debug = True
-    try:
-        D = Directory(args.I)
-        tree, error_count = D.validate()
-    except Exception as e:
-        logger.fatal(f"Error: {e}")
-        exit(1)
-    
+    # try:
+    D = Directory(args.I)
+    tree, error_count = D.validate()
+    # except Exception as e:
+    #     logger.fatal(f"Error: {e}")
+    #     exit(1)
+
     if error_count > 0:
         logger.error("Validation failed")
         exit(1)
 
     if args.L == "cpp":
         codeGen = CppGenerator(tree)
+    elif args.L == "python":
+        codeGen = pythonGenerator(tree)
     else:
         print(f"Language {args.L} not supported")
         exit(1)

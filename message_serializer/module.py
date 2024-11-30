@@ -143,7 +143,6 @@ class Module:
         for message in self.data["messages"]:
             logger.debug(f"Validating message fields in '{message['name']}'")
 
-            message["scope"] = [self.data["name"]]
             message[self.PAD_PARAM_COUNT] = 0
             message[self.BITFIELD_NAME_COUNT] = 0
             names = [field["name"] for field in message["fields"]] + list(
@@ -161,8 +160,6 @@ class Module:
             bfBitSize = 0
             newFields = []
             for field in message["fields"]:
-                field["scope"] = message["scope"] + [message["name"]]
-
                 # check message names
                 if names.count(field["name"]) > 1:
                     raise NameError(
@@ -245,15 +242,18 @@ class Module:
 
         # validate constants first as other types may reference them
         for constantNode in self.data["constants"]:
+            constantNode["parent"] = self.data
             visitList = {}
             self.validate_const_references_recursive(
                 constantNode, visitList, directory_constants_list
             )
 
         for message in self.data["messages"]:
+            message["parent"] = self.data
             for field in message["fields"]:
+                field["parent"] = message
                 if "default_value" not in field.keys():
-                    # this shouldn't happen, the parser should fill in default vaue as "None", but just in case
+                    # this shouldn't happen, the parser should fill in default value as "None", but just in case
                     raise ValueError(
                         f"In {self.fileName}, line {field['line']}:\n"
                         f"\tNo default value provided for field '{field['name']}'"
@@ -271,7 +271,9 @@ class Module:
 
         # validate states
         for state in self.data["states"]:
+            state["parent"] = self.data
             for field in state["fields"]:
+                field["parent"] = state
                 if "default_value" not in field.keys():
                     raise ValueError(
                         f"In {self.fileName}, line {field['line']}:\n"

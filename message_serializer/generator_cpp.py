@@ -1,11 +1,8 @@
-import logging
-import os
-
-from message_serializer.generator import Generator
+from message_serializer.generator import Generator, logger
 from message_serializer.cpp_config import *
 from message_serializer.parser import is_number
+import os
 
-logger = logging.getLogger("message_serialize")
 
 def is_cpp_reserved_keywords(name):
     return name in CPPKEYWORDS
@@ -20,8 +17,8 @@ class CppGenerator(Generator):
         self,
         ast,
     ):
+        self.scope_combine_function = lambda higher, lower: f"{higher}::{lower}"
         self.inlineCommentChar = "//"
-        self.messageList = []
         super().__init__(ast)
 
     def generate(self, source_name=None):
@@ -30,17 +27,27 @@ class CppGenerator(Generator):
 
         lic = self.get_license() + "\n"
         includeGuard = (
-            f"#ifndef _{source_name.upper()}_H_\n" f"#define _{source_name.upper()}_H_\n\n"
+            f"#ifndef _{source_name.upper()}_H_\n"
+            f"#define _{source_name.upper()}_H_\n\n"
         )
         includes = '#include "serializer/serializer.h"\n\n' "#include <stdint.h>\n\n"
 
         self.indent()
 
         modules = ""
-        for module in self.tree.tree:
-            modules += self._generate_module(module)
+        # for module in self.ast_tree.tree:
+        #     modules += self._generate_module(module)
         # needs to be called after all messages are generated
-        wordIDs = self._generate_wordIDList(self.messageList)
+        modules += self._generate_module_members(
+            [
+                self.ast_tree.constant_iterator(),
+                self.ast_tree.state_iterator(),
+                self.ast_tree.message_iterator(),
+            ],
+            [self._generate_constants, self._generate_enum, self._generate_message],
+        )
+
+        wordIDs = self._generate_wordIDList() + "\n"
         max_size_constant = self._get_max_message_size()
 
         self.dedent()
@@ -49,35 +56,32 @@ class CppGenerator(Generator):
             lic
             + includeGuard
             + includes
-            + "namespace ICD {\n"
+            + f"namespace {source_name.upper()} {{\n"
             + wordIDs
             + modules
             + max_size_constant
-            + "} // namespace icd\n\n"
+            + f"}} // namespace {source_name.upper()}\n\n"
             + f"#endif\t//_{source_name.upper()}_H_\n\n"
         )
 
         serializers = ""
-        for module in self.tree.tree:
-            module_impl = ""
-            for message in module["messages"]:
-                module_impl += (
-                    f"{self.tab()}int ICD::{module['name']}::"
-                    + self._generate_message_serialization(message)
-                    + "\n"
-                )
-                module_impl += (
-                    f"{self.tab()}int ICD::{module['name']}::"
-                    + self._generate_message_deserialization(message)
-                    + "\n"
-                )
-
-            serializers += module_impl
+        for message in self.ast_tree.message_iterator():
+            module = message["parent"]
+            serializers += (
+                f"{self.tab()}int {source_name.upper()}::{module['name']}::"
+                + self._generate_message_serialization(message)
+                + "\n"
+            )
+            serializers += (
+                f"{self.tab()}int {source_name.upper()}::{module['name']}::"
+                + self._generate_message_deserialization(message)
+                + "\n"
+            )
 
         impl_includes = f'#include "{source_name}.h"\n\n'
-        implimentationFile = lic + impl_includes + serializers
+        implementationFile = lic + impl_includes + serializers
 
-        return headerFile, implimentationFile
+        return headerFile, implementationFile
 
     def generate_source_files(self, output_dir, source_name=None):
         # copy template files
@@ -86,11 +90,14 @@ class CppGenerator(Generator):
 
         logger.info(f"Copying C++ template files to {output_dir}")
 
+        this_dir = os.path.dirname(os.path.realpath(__file__))
+        template_dir = os.path.join(this_dir, "..", "templates", "cpp")
+
         self._copy_template_file(
-            f"{output_dir}/serializer", "templates/cpp/", "serializer.h"
+            f"{output_dir}/serializer", template_dir, "serializer.h"
         )
         self._copy_template_file(
-            f"{output_dir}/serializer", "templates/cpp/", "serializer.cpp"
+            f"{output_dir}/serializer", template_dir, "serializer.cpp"
         )
 
         # generate code
@@ -103,21 +110,10 @@ class CppGenerator(Generator):
             f.write(impl)
         logger.debug(f"Generated " + output_dir + "/" + source_name + ".cpp")
 
-    def _copy_template_file(self, output_dir, template_dir, file_name):
-        # create output directory if it does not exist
-        if not os.path.exists(output_dir):
-            logger.debug(f"{output_dir} does not exist, creating directory {output_dir}")
-            os.makedirs(output_dir)
-        with open(template_dir + "/" + file_name, "r") as f:
-            with open(output_dir + "/" + file_name, "w") as out:
-                out.write(self.get_license())
-                out.write(f.read())
-
-    def _generate_message(self, message, module):
+    def _generate_message(self, message):
+        module = message["parent"]
         line = (
-            self.tab()
-            + f"struct {message['name']} : public serializableMessage"
-            " {\n"
+            self.tab() + f"struct {message['name']} : public serializableMessage" " {\n"
         )
         docTab = self.tab()
         self.indent()
@@ -125,10 +121,18 @@ class CppGenerator(Generator):
             self.tab()
             + "/******************************************** USER DATA ********************************************/\n\n"
         )
-        # bit field parameters
-        bfOpen = False
-        prevBFname = None
-        bfSize = 0
+
+        printVar = lambda field, *args: f"{self.tab()}{self._print_variable(field)}\n"
+        line += self._message_field_worker(
+            message=message,
+            on_bf_open=lambda field, *args: self._open_bitField(),
+            on_bf_close=lambda field, bf_name, bf_size: self._close_bitfield(
+                bf_size, bf_name
+            ),
+            on_bf=printVar,
+            on_udf=printVar,
+            on_df=printVar,
+        )
 
         tempDoc = message[DOC] if DOC in message.keys() else ""
         tempDoc = tempDoc.replace('"', "")
@@ -138,31 +142,7 @@ class CppGenerator(Generator):
             tempDoc = field[DOC] if DOC in field.keys() else ""
             tempDoc = tempDoc.replace('"', "")
             docString += f"{docTab}* @param {field['name']} {tempDoc}\n"
-            if field["type"] == "bitfield" and not bfOpen:
-                prevBFname = field[PW]
-                bfOpen = True
-                line += self._open_bitField()
-            elif field["type"] != "bitfield" and bfOpen:
-                bfOpen = False
-                bfSize = 0
-                line += self._close_bitfield(bfSize, prevBFname)
-                prevBFname = None
-            elif PW in field.keys() and field[PW] != prevBFname and bfOpen:
-                line += self._close_bitfield(bfSize, prevBFname)
-                line += self._open_bitField()
-                bfSize = 0
-                prevBFname = field[PW]
-
-            if bfOpen:
-                bfSize += int(field["count"])
-
-            # print variable
-            line += self.tab() + self._print_variable(field) + "\n"
         docString += f"{docTab}*/\n"
-
-        if bfOpen:
-            line += self._close_bitfield(bfSize, prevBFname)
-            prevBFname = field[PW]
 
         # print serialization stuff
         line += (
@@ -172,24 +152,27 @@ class CppGenerator(Generator):
         # message size parameter
         line += self.tab() + "static constexpr uint16_t SIZE = "
         prevBFname = None
-        for field in message["fields"]:
-            if field["type"] == "bitfield":
-                if prevBFname != field[PW]:
-                    line += f"sizeof({field[PW]}) + "
-                prevBFname = field[PW]
-            elif field["type"] in BUILTINS.keys():
-                line += f"sizeof({field['name']}) + "
-            else:
-                scope = self.tree.find_member(field["type"])
-                line += f"{scope[0][0]}::{field['type']}::SIZE "
-                if field["count"] != 1:
-                    line += f"* {field['count']} "
-                line += "+ "
+
+        on_udf_lambda = lambda field, *args: (
+            f"{self.msg_name_w_scope_from_name(field['type'])}::SIZE "
+            + (
+                f" * {self.msg_name_w_scope_from_name(field['count'])}"
+                if field["count"] != 1
+                else ""
+            )
+            + " + "
+        )
+        line += self._message_field_worker(
+            message=message,
+            on_bf_open=lambda field, *args: f"sizeof({field[PW]}) + ",
+            on_df=lambda field, *args: f"sizeof({field['name']}) + ",
+            on_udf=on_udf_lambda,
+        )
         line += "0;\n"
         line += (
             self.tab()
             + f"static constexpr wordIDs WORDID = wordIDs::"
-            + self.messageNameToWordID(f"{module['name']}::{message['name']};\n")
+            + f"{self.msg_2_wordID(message)};\n"
         )
 
         # serialization
@@ -197,7 +180,7 @@ class CppGenerator(Generator):
         line += f"{self.tab()}int deserialize(uint8_t *buffer) override;\n"
 
         self.dedent()
-        line += self.tab() + "};"
+        line += self.tab() + "};\n"
         return docString + line
 
     def _generate_enum(self, enum):
@@ -222,27 +205,31 @@ class CppGenerator(Generator):
             else constant["type"]
         )
         line = (
-            self.tab()
-            + f"constexpr {resolvedType} {constant['name']} = {constant['default_value']};"
-        )
+            self.tab() + f"constexpr {self._print_variable(constant)}"
+        )  # semi-colon is added in print_variable
         if DOC in constant.keys():
             line += f"\t// {constant[DOC][1:-1]}"
         return line + "\n"
 
-    def _generate_module(self, module):
-        line = self.tab() + f"namespace {module['name']} " "{\n"
-        self.indent()
-        for constant in module["constants"]:
-            line += self._generate_constants(constant) + "\n"
-        for enum in module["states"]:
-            line += self._generate_enum(enum) + "\n"
-        for message in module["messages"]:
-            line += self._generate_message(message, module) + "\n"
-            self.messageList.append(f"{module['name']}::{message['name']}")
+    def _generate_module_members(self, iterators, generators):
+        line = ""
+        moduleName = None
+        for iterator, generator in zip(iterators, generators):
+            for member in iterator:
+                if moduleName != member["parent"]["name"]:
+                    if moduleName is not None:
+                        self.dedent()
+                        line += f"{self.tab()}}}; // namespace {moduleName}\n\n"
 
-        self.dedent()
-        line += self.tab() + "};" + f" // namespace {module['name']}"
-        return line + "\n\n"
+                    line += f"{self.tab()}namespace {member['parent']['name']} {{\n"
+                    self.indent()
+                    moduleName = member["parent"]["name"]
+                line += f"{generator(member)}\n"
+        if moduleName is not None:
+            self.dedent()
+            line += f"{self.tab()}}}; // namespace {moduleName}\n\n"
+
+        return line
 
     def _generate_message_deserialization(self, message):
         return self._generate_message_serialization_helper(message, serialize=False)
@@ -256,20 +243,17 @@ class CppGenerator(Generator):
     ===============================================================================
     """
 
-    def _generate_wordIDList(self, messageList):
+    def _generate_wordIDList(self):
         wordIDs = self.tab() + "enum class wordIDs " "{\n"
         self.indent()
-        for message in messageList:
-            wordIDs += self.tab() + f"{self.messageNameToWordID(message)},\n"
+        for message in self.ast_tree.message_iterator():
+            wordIDs += self.tab() + f"{self.msg_2_wordID(message)},\n"
         wordIDs += "\n"
         wordIDs += self.tab() + "WORDID_COUNT,\n"
         wordIDs += self.tab() + "INVALID_WORDID = 0xFFFF\n"
         self.dedent()
         wordIDs += self.tab() + "};\n"
         return wordIDs
-
-    def messageNameToWordID(self, messageName):
-        return messageName.replace(":", "_").upper()
 
     def _generate_message_serialization_helper(self, message, serialize=True):
         if serialize:
@@ -279,30 +263,12 @@ class CppGenerator(Generator):
 
         self.indent()
         line += self.tab() + f"uint8_t* itr = buffer;\n"
-        bfOpen = False
-        lastBfName = None
-        for field in message["fields"]:
-            if (
-                field["type"] == "bitfield"
-                and not bfOpen
-                or (PW in field.keys() and field[PW] != lastBfName)
-            ):
-                bfOpen = True
-                lastBfName = field[PW]
-            elif bfOpen and field["type"] == "bitfield":
-                continue
-            elif field["type"] != "bitfield" and bfOpen:
-                bfOpen = False
-                lastBfName = None
 
-            if field["count"] != 1 and field["type"] != "bitfield":
-                line += self.tab() + f"for(int i = 0; i < {field['count']}; i++) " "{\n"
-                self.indent()
-                line += self._serialize_parameter(field, serialize=serialize)
-                self.dedent()
-                line += self.tab() + "}\n"
-            else:
-                line += self._serialize_parameter(field, serialize=serialize)
+        line += self._message_field_worker(
+            message=message,
+            on_udf=lambda field, *args: self._serialize_parameter(field, serialize),
+            on_df=lambda field, *args: self._serialize_parameter(field, serialize),
+        )
 
         line += self.tab() + "return itr - buffer;\n"
         self.dedent()
@@ -317,33 +283,30 @@ class CppGenerator(Generator):
             function_hton_call = "deserialize"
 
         line = ""
-        if field["type"] == "bitfield":
-            line += (
-                self.tab()
-                + f"{hton_call}(&{field[PW]}, itr, sizeof({field[PW]}));\n"
-            )
-        elif field["type"] in BUILTIN_TO_CPP.keys():
+        if field["count"] != 1:
+            line += self.tab() + f"for(int i = 0; i < {field['count']}; i++) " "{\n"
+            self.indent()
+
+        if field["type"] in BUILTIN_TO_CPP.keys():
             if field["count"] == 1:
-                line += (
-                    self.tab()
-                    + f"{hton_call}(&{field['name']}, itr, sizeof({field['name']}));\n"
-                )
+                line += f"{self.tab()}{hton_call}(&{field['name']}, itr, sizeof({field['name']}));\n"
             else:
-                line += (
-                    self.tab()
-                    + f"{hton_call}({field['name']}, itr, sizeof({field['name']}[0]));\n"
-                )
+                line += f"{self.tab()}{hton_call}({field['name']}, itr, sizeof({field['name']}[0]));\n"
+
         else:
             line += self.tab() + f"itr += {field['name']}"
             if field["count"] != 1:
                 line += "[i]"
             line += f".{function_hton_call}(itr);\n"
 
+        if field["count"] != 1:
+            self.dedent()
+            line += self.tab() + "}\n"
+
         return line
 
     def _print_variable(self, field):
-
-        if field["type"] == "bitfield":
+        if field["type"] == BF:
             resolvedType = U8CPP
             for key in CPP_TO_BUILTINS.keys():
                 if CPP_TO_BUILTINS[key]["bitLength"] < int(field["count"]):
@@ -358,16 +321,12 @@ class CppGenerator(Generator):
             resolvedType = BUILTIN_TO_CPP[field["type"]]
         else:
             logger.debug("Resolving type for " + field["type"])
-            member = self.tree.find_member(field["type"])
-            resolvedType = member[0][0] + "::"
-            if member[2] is not None:
-                resolvedType += (
-                    +self.tree.tree[member[0][1]][member[1][1]]["name"] + "::"
-                )
-            resolvedType += field["type"]
+            resolvedType = self.msg_name_w_scope_from_name(field["type"])
 
         string = f"{resolvedType} {field['name']}"
-        if field["type"] == "bitfield":
+
+        # add count / array size / bitfield size if necessary
+        if field["type"] == BF:
             string += f" : {field['count']}"
         elif not is_number(field["count"]) or int(field["count"]) > 1:
             string += f"[{field['count']}]"
@@ -379,17 +338,7 @@ class CppGenerator(Generator):
             else:
                 # get default value scope
                 logger.debug(f"Searching for default value of {field['default_value']}")
-                member = self.tree.find_member(field["default_value"])
-                if member is None:
-                    string += f" = {field['default_value']}"
-                else :
-                    print(member)
-                    hierarchy = (
-                        self.tree.tree[member[0][1]]['name'] + "::" + self.tree.tree[member[0][1]][member[1][0]][member[1][1]]['name']
-                    )
-                    if len(member) == 3 and member[2] is not None:
-                        hierarchy += "::" + member[2][1]["name"]
-                    string += f" = {hierarchy}"
+                string += f" = {self.msg_name_w_scope_from_name(field['default_value'])}"
 
         string += ";"
 
@@ -425,10 +374,11 @@ class CppGenerator(Generator):
         return line
 
     def _open_bitField(self):
-        line = self.tab() + "struct {\n"
+        line = self.tab() + "union {\n"
         self.indent()
-        line += self.tab() + "union {\n"
+        line += self.tab() + "struct {\n"
         self.indent()
+
         return line
 
     def _get_max_message_size(self):
@@ -439,9 +389,10 @@ class CppGenerator(Generator):
         )
         self.indent()
         max_size_constant += f"{self.tab()}uint16_t max = 0;\n"
-        for message in self.messageList:
+        for message in self.ast_tree.message_iterator():
+            name = self.msg_name_w_scope(message)
             max_size_constant += (
-                self.tab() + f"max = ({message}::SIZE > max) ? {message}::SIZE : max;\n"
+                self.tab() + f"max = ({name}::SIZE > max) ? {name}::SIZE : max;\n"
             )
         max_size_constant += f"{self.tab()}return max;\n"
         self.dedent()

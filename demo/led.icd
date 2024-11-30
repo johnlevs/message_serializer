@@ -1,9 +1,9 @@
-CONSTANT LED_COUNT u8 = 2
+CONSTANT LED_COUNT u8 = LIGHTBULB_COUNT
 
 MSG ledStatusWord                                       -Doc "I contain the status of a 20 led light strip" 
 {
     lightStatuses lightBulbStatusWord[LED_COUNT]        -Doc "The status of each light bulb in the strip"
-    connectedToInternet bitfield[1]                     -Doc "True (1) if the light bulb is connected to the internet"
+    connectedToInternet u8                               -Doc "True (1) if the light bulb is connected to the internet"
     test u8 = OFF
 }
 

@@ -53,6 +53,7 @@ def p_constant_def(p):
     | CONST IDENTIFIER TYPE "=" NUMBER DOC STRING newline"""
     p[0] = {
         "entryType": CONST,
+        "count": 1,
         "type": p[3],
         "name": p[2],
         "default_value": p[5],
