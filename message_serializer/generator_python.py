@@ -205,7 +205,7 @@ class pythonGenerator(Generator):
                 f"{self.tab()}self.{name} = {bStrVName}.read('uint:{field['count']}')\n"
             )
         # array case
-        elif field["count"] > 1:
+        elif int(field["count"]) > 1:
             line = f"{self.tab()}for i in range({field['count']}):\n"
             self.indent()
             line += f"{self.tab()}self.{name}[i] = {bStrVName}.read('{BUILTIN_TO_BIT_STRINGS[field['type']]}')\n"
@@ -222,9 +222,9 @@ class pythonGenerator(Generator):
         if field["type"] == BF:
             line = f"{self.tab()}{bStrVName}.append(BitStream(uint=self.{name}, length={field['count']}))\n"
         # array case
-        elif field["count"] > 1:
+        elif int(field["count"]) > 1:
             line = f"{self.tab()}for i in range({field['count']}):\n"
-            self.tab()
+            self.indent()
             line += f"{self.tab()}{bStrVName}.append(BitStream(uint=self.{name}[i], length={BUILTINS[field['type']][BITLENGTH]}))\n"
             self.dedent()
         # single case
@@ -285,23 +285,32 @@ class pythonGenerator(Generator):
         self.indent()
         for field in message["fields"]:
             name = self._field_name(field)
+            count = 1
             if field["type"] != BF and (
                 not is_number(field["count"]) or int(field["count"]) > 1
             ):
-                count = self._msg_name_w_scope_from_name(field["count"])
-                line += f"{self.tab()}self.{name} = [{self._msg_name_w_scope_from_name(field['type'])}] * {count}\n"
+                count = (
+                    field["count"]
+                    if is_number(field["count"])
+                    else self._msg_name_w_scope_from_name(field["count"])
+                )
+                print_type = (
+                    self._msg_name_w_scope_from_name(field["type"])
+                    if field["type"] not in BUILTIN_TO_PYTHON.keys()
+                    else BUILTIN_TO_PYTHON[field["type"]]
+                )
+                line += f"{self.tab()}self.{name} = [{print_type}] * {count}\n"
 
+            elif field["default_value"] is not None:
+                if is_number(field["default_value"]):
+                    dv = field["default_value"]
+                else:  # user defined type
+                    dv = self._msg_name_w_scope_from_name(field["default_value"])
+                line += f"{self.tab()}self.{name} = {dv}\n"
+            elif field["type"] not in BUILTIN_TO_PYTHON.keys():
+                line += f"{self.tab()}self.{name} = {self._msg_name_w_scope_from_name(field['type'])}()\n"
             else:
-                if field["default_value"] is not None:
-                    if is_number(field["default_value"]):
-                        dv = field["default_value"]
-                    else:  # user defined type
-                        dv = self._msg_name_w_scope_from_name(field["default_value"])
-                    line += f"{self.tab()}self.{name} = {dv}\n"
-                elif field["type"] not in BUILTIN_TO_PYTHON.keys():
-                    line += f"{self.tab()}self.{name} = {self._msg_name_w_scope_from_name(field['type'])}()\n"
-                else:
-                    line += f"{self.tab()}self.{name} = {BUILTINS[field['type']][DEFAULT_VALUE]}\n"
+                line += f"{self.tab()}self.{name} = {BUILTINS[field['type']][DEFAULT_VALUE]}\n"
         self.dedent()
         return f"{line}\n\n"
 
@@ -316,7 +325,7 @@ class pythonGenerator(Generator):
         temp = f"{message['parent']['name']}.{message['name']}"
         if "parent" in message["parent"]:
             temp = f"{message['parent']['parent']['name']}.{temp}"
-        return temp;
+        return temp
 
     def _msg_name_w_scope_from_name(self, name):
         return self._msg_name_w_scope(self.ast_tree.find_member_reference(name))
