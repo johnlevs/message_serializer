@@ -1,7 +1,7 @@
 // =========================================================================
 // THIS CODE HAS BEEN AUTOMATICALLY GENERATED USING 'message_serializer' TOOL
 //       https://github.com/johnlevs/message_serializer
-//       Generated on: //2024-11-29 21:33:16// 
+//       Generated on: //2024-11-30 09:41:47// 
 // =========================================================================
 // MIT License
 // 

@@ -11,31 +11,11 @@ logger = logging.getLogger("message_serializer")
 class ast:
     def __init__(self, jsonTree):
         self.tree = jsonTree
-        self.tree = self.__sort_tree()
         self.messages_sorted = self.topological_message_sort()
         self.constants_sorted = self.topological_const_sort()
 
     def __str__(self):
         return json.dumps(self.tree, indent=4)
-
-    def __sort_tree(self):
-        sortedTree = []
-        for module in copy.deepcopy(self.tree):
-            sortedModule = {}
-            sortedModule["name"] = module["name"]
-            sortedModule["constants"] = sorted(
-                module["constants"], key=lambda x: x["name"]
-            )
-            sortedModule["states"] = sorted(module["states"], key=lambda x: x["name"])
-            sortedModule["messages"] = sorted(
-                module["messages"], key=lambda x: x["name"]
-            )
-            for message in sortedModule["messages"]:
-                message["fields"] = sorted(message["fields"], key=lambda x: x["name"])
-            for states in sortedModule["states"]:
-                states["fields"] = sorted(states["fields"], key=lambda x: x["name"])
-            sortedTree.append(sortedModule)
-        return sortedTree
 
     def __search_module_field(self, search_string, element_name, module_ndx):
         """
@@ -48,17 +28,10 @@ class ast:
         ):
             return None
         tree = self.tree[module_ndx][element_name]
-        low = 0
-        high = len(tree) - 1
-        while low <= high:
-            mid = (low + high) // 2
-            if tree[mid]["name"] < search_string:
-                low = mid + 1
-            elif tree[mid]["name"] > search_string:
-                high = mid - 1
-            else:
-                return mid
-        return None
+        try:
+            return [field["name"] for field in tree].index(search_string)
+        except ValueError:
+            return None
 
     def module_iterator(self):
         for module in self.tree:

@@ -17,6 +17,7 @@ class CppGenerator(Generator):
         self,
         ast,
     ):
+        self.scope_combine_function = lambda higher, lower: f"{higher}::{lower}"
         self.inlineCommentChar = "//"
         super().__init__(ast)
 
@@ -254,15 +255,6 @@ class CppGenerator(Generator):
         wordIDs += self.tab() + "};\n"
         return wordIDs
 
-    def msg_2_wordID(self, message):
-        return f"{message['parent']['name']}__{message['name'].upper()}"
-
-    def msg_name_w_scope(self, message):
-        return f"{message['parent']['name']}::{message['name']}"
-
-    def msg_name_w_scope_from_name(self, name):
-        return self.msg_name_w_scope(self.ast_tree.find_member_reference(name))
-
     def _generate_message_serialization_helper(self, message, serialize=True):
         if serialize:
             line = f"{message['name']}::serialize(uint8_t *buffer) " + "\n{\n"
@@ -346,20 +338,7 @@ class CppGenerator(Generator):
             else:
                 # get default value scope
                 logger.debug(f"Searching for default value of {field['default_value']}")
-                member = self.ast_tree.find_member(field["default_value"])
-                if member is None:
-                    string += f" = {field['default_value']}"
-                else:
-                    hierarchy = (
-                        self.ast_tree.tree[member[0][1]]["name"]
-                        + "::"
-                        + self.ast_tree.tree[member[0][1]][member[1][0]][member[1][1]][
-                            "name"
-                        ]
-                    )
-                    if len(member) == 3 and member[2] is not None:
-                        hierarchy += "::" + field["default_value"]
-                    string += f" = {hierarchy}"
+                string += f" = {self.msg_name_w_scope_from_name(field['default_value'])}"
 
         string += ";"
 

@@ -13,6 +13,8 @@ logger = logging.getLogger("message_serializer")
 class Generator(ABC):
     tabCount = 0
     inlineCommentChar = "#"
+    scope_combine_function = lambda self, higher, lower: f"{higher}.{lower}"
+    msg_id_function = lambda self, higher, lower: f"{higher}__{lower}"
 
     def __init__(self, tree: "ast"):
         self.ast_tree = tree
@@ -106,4 +108,15 @@ class Generator(ABC):
             line += on_bf_close(field, bf_name, bf_size, *args)
         return line
 
-   
+    def msg_2_wordID(self, message):
+        return self.msg_id_function(message["parent"]["name"], message["name"])
+
+    def msg_name_w_scope(self, message):
+        temp = self.scope_combine_function(message["parent"]["name"], message["name"])
+        if "parent" in message["parent"]:
+            return self.scope_combine_function(message["parent"]["parent"]["name"], temp)
+        return temp
+    
+    def msg_name_w_scope_from_name(self, name):
+        return self.msg_name_w_scope(self.ast_tree.find_member_reference(name))
+        

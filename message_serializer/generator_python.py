@@ -115,7 +115,7 @@ class pythonGenerator(Generator):
         if is_number(constant["default_value"]):
             dv = constant["default_value"]
         else:
-            dv = self._msg_name_w_scope_from_name(constant["default_value"])
+            dv = self.msg_name_w_scope_from_name(constant["default_value"])
         line = f"{self.tab()}{constant['name'].upper()}: {resolvedType} = {dv}\n"
         return line + "\n"
 
@@ -169,64 +169,52 @@ class pythonGenerator(Generator):
         return line + "\n"
 
     def _serialize_user_defined(self, field):
+        line = ""
         name = self._field_name(field)
-
-        if not is_number(field["count"]) or field["count"] > 1:
-            count = self._msg_name_w_scope_from_name(field["count"])
-            line = f"{self.tab()}for i in range({count}):\n"
-            self.indent()
-            line += (
-                f"{self.tab()}bStr.append(BitArray(bytes=self.{name}[i].serialize()))\n"
-            )
-            self.dedent()
+        if not is_number(field["count"]) or field["count"] != 1:
+            line += f"{self.tab()}[bStr.append(BitArray(bytes={name}.serialize())) for {name} in self.{name}]\n"
         else:
             line = f"{self.tab()}bStr.append(BitArray(bytes=self.{name}.serialize()))\n"
         return line
 
     def _deserialize_user_defined(self, field):
+        line = ""
         name = self._field_name(field)
-
-        if not is_number(field["count"]) or field["count"] > 1:
-            count = self._msg_name_w_scope_from_name(field["count"])
-            line = f"{self.tab()}for i in range({count}):\n"
-            self.indent()
-            line += f"{self.tab()}self.{name}[i].deserialize({self.bStrVName})\n"
-            self.dedent()
+        if not is_number(field["count"]) or field["count"] != 1:
+            count = self.msg_name_w_scope_from_name(field["count"])
+            line += f"{self.tab()}[{name}.deserialize({self.bStrVName}) for {name} in self.{name}]\n"
         else:
             line = f"{self.tab()}self.{name}.deserialize({self.bStrVName})\n"
         return line
 
     def _deserialize_builtin(self, field, bStrVName):
+        line = ""
         name = self._field_name(field)
-
         # bitfield case
         if field["type"] == BF:
             line = (
                 f"{self.tab()}self.{name} = {bStrVName}.read('uint:{field['count']}')\n"
             )
         # array case
-        elif int(field["count"]) > 1:
-            line = f"{self.tab()}for i in range({field['count']}):\n"
-            self.indent()
-            line += f"{self.tab()}self.{name}[i] = {bStrVName}.read('{BUILTIN_TO_BIT_STRINGS[field['type']]}')\n"
-            self.dedent()
+        elif field["count"] != 1:
+            count = field["count"]
+            if not is_number(field["count"]):
+                count = self.msg_name_w_scope_from_name(field["count"])
+            line += f"{self.tab()}self.{name} = [{bStrVName}.read('{BUILTIN_TO_BIT_STRINGS[field['type']]}') for _ in range({count})]\n"
         # single case
         else:
             line = f"{self.tab()}self.{name} = {bStrVName}.read('{BUILTIN_TO_BIT_STRINGS[field['type']]}')\n"
         return line
 
     def _serialize_builtin(self, field, bStrVName):
+        line = ""
         name = self._field_name(field)
-
         # bitfield case
         if field["type"] == BF:
             line = f"{self.tab()}{bStrVName}.append(BitStream(uint=self.{name}, length={field['count']}))\n"
         # array case
-        elif int(field["count"]) > 1:
-            line = f"{self.tab()}for i in range({field['count']}):\n"
-            self.indent()
-            line += f"{self.tab()}{bStrVName}.append(BitStream(uint=self.{name}[i], length={BUILTINS[field['type']][BITLENGTH]}))\n"
-            self.dedent()
+        elif field["count"] != 1:
+            line += f"{self.tab()}[{bStrVName}.append(BitStream(uint={name}, length={BUILTINS[field['type']][BITLENGTH]})) for {name} in self.{name}]\n"
         # single case
         else:
             line = f"{self.tab()}{bStrVName}.append(BitStream(uint=self.{name}, length={BUILTINS[field['type']][BITLENGTH]}))\n"
@@ -292,10 +280,10 @@ class pythonGenerator(Generator):
                 count = (
                     field["count"]
                     if is_number(field["count"])
-                    else self._msg_name_w_scope_from_name(field["count"])
+                    else self.msg_name_w_scope_from_name(field["count"])
                 )
                 print_type = (
-                    self._msg_name_w_scope_from_name(field["type"])
+                    self.msg_name_w_scope_from_name(field["type"])
                     if field["type"] not in BUILTIN_TO_PYTHON.keys()
                     else BUILTIN_TO_PYTHON[field["type"]]
                 )
@@ -305,10 +293,10 @@ class pythonGenerator(Generator):
                 if is_number(field["default_value"]):
                     dv = field["default_value"]
                 else:  # user defined type
-                    dv = self._msg_name_w_scope_from_name(field["default_value"])
+                    dv = self.msg_name_w_scope_from_name(field["default_value"])
                 line += f"{self.tab()}self.{name} = {dv}\n"
             elif field["type"] not in BUILTIN_TO_PYTHON.keys():
-                line += f"{self.tab()}self.{name} = {self._msg_name_w_scope_from_name(field['type'])}()\n"
+                line += f"{self.tab()}self.{name} = {self.msg_name_w_scope_from_name(field['type'])}()\n"
             else:
                 line += f"{self.tab()}self.{name} = {BUILTINS[field['type']][DEFAULT_VALUE]}\n"
         self.dedent()
@@ -320,12 +308,3 @@ class pythonGenerator(Generator):
         if field["name"][0:2] == "__":
             name = field["name"][1:]
         return name
-
-    def _msg_name_w_scope(self, message):
-        temp = f"{message['parent']['name']}.{message['name']}"
-        if "parent" in message["parent"]:
-            temp = f"{message['parent']['parent']['name']}.{temp}"
-        return temp
-
-    def _msg_name_w_scope_from_name(self, name):
-        return self._msg_name_w_scope(self.ast_tree.find_member_reference(name))

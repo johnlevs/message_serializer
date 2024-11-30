@@ -1,7 +1,7 @@
 # =========================================================================
 # THIS CODE HAS BEEN AUTOMATICALLY GENERATED USING 'message_serializer' TOOL
 #       https://github.com/johnlevs/message_serializer
-#       Generated on: #2024-11-29 21:33:17# 
+#       Generated on: #2024-11-30 09:41:47# 
 # =========================================================================
 # MIT License
 # 
@@ -142,21 +142,19 @@ class LED:
 		def __init__(self):
 			self.lightStatuses = [LIGHTBULB.lightBulbStatusWord] * LED.LED_COUNT
 			self.connectedToInternet = 0
-			self.test = LED.states.ON
+			self.test = LED.states.OFF
 
 
 		def serialize(self) -> bytes:
 			bStr = BitStream()
-			for i in range(LED.LED_COUNT):
-				bStr.append(BitArray(bytes=self.lightStatuses[i].serialize()))
+			[bStr.append(BitArray(bytes=lightStatuses.serialize())) for lightStatuses in self.lightStatuses]
 			bStr.append(BitStream(uint=self.connectedToInternet, length=8))
 			bStr.append(BitStream(uint=self.test, length=8))
 			return bStr.bytes
 
 		def deserialize(self, byteArr):
 			bStr = BitStream(bytes=byteArr)
-			for i in range(LED.LED_COUNT):
-				self.lightStatuses[i].deserialize(bStr)
+			[lightStatuses.deserialize(bStr) for lightStatuses in self.lightStatuses]
 			self.connectedToInternet = bStr.read('uintbe:8')
 			self.test = bStr.read('uintbe:8')
 

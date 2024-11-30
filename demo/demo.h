@@ -1,7 +1,7 @@
 // =========================================================================
 // THIS CODE HAS BEEN AUTOMATICALLY GENERATED USING 'message_serializer' TOOL
 //       https://github.com/johnlevs/message_serializer
-//       Generated on: //2024-11-29 21:33:16// 
+//       Generated on: //2024-11-30 09:41:47// 
 // =========================================================================
 // MIT License
 // 
@@ -34,8 +34,8 @@
 
 namespace DEMO {
 	enum class wordIDs {
-		LIGHTBULB__LIGHTBULBSTATUSWORD,
-		LED__LEDSTATUSWORD,
+		LIGHTBULB__lightBulbStatusWord,
+		LED__ledStatusWord,
 
 		WORDID_COUNT,
 		INVALID_WORDID = 0xFFFF
@@ -81,7 +81,7 @@ namespace DEMO {
 			/******************************************** SERIALIZATION ********************************************/
 
 			static constexpr uint16_t SIZE = sizeof(brightness) + sizeof(colorR) + sizeof(colorG) + sizeof(colorB) + sizeof(powerOn) + sizeof(powerOff) + sizeof(broken) + 0;
-			static constexpr wordIDs WORDID = wordIDs::LIGHTBULB__LIGHTBULBSTATUSWORD;
+			static constexpr wordIDs WORDID = wordIDs::LIGHTBULB__lightBulbStatusWord;
 			int serialize(uint8_t *buffer) override;
 			int deserialize(uint8_t *buffer) override;
 		};
@@ -104,7 +104,7 @@ namespace DEMO {
 			/******************************************** SERIALIZATION ********************************************/
 
 			static constexpr uint16_t SIZE = LIGHTBULB::lightBulbStatusWord::SIZE  * LED::LED_COUNT + sizeof(connectedToInternet) + sizeof(test) + 0;
-			static constexpr wordIDs WORDID = wordIDs::LED__LEDSTATUSWORD;
+			static constexpr wordIDs WORDID = wordIDs::LED__ledStatusWord;
 			int serialize(uint8_t *buffer) override;
 			int deserialize(uint8_t *buffer) override;
 		};
