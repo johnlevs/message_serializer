@@ -5,6 +5,7 @@ MSG ledStatusWord                                       -Doc "I contain the stat
     lightStatuses lightBulbStatusWord[LED_COUNT]        -Doc "The status of each light bulb in the strip"
     connectedToInternet u8                               -Doc "True (1) if the light bulb is connected to the internet"
     test u8 = OFF
+
 }
 
 STATE states{

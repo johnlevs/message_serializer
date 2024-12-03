@@ -19,7 +19,12 @@ class CppGenerator(Generator):
     ):
         self.scope_combine_function = lambda higher, lower: f"{higher}::{lower}"
         self.inlineCommentChar = "//"
-        super().__init__(ast)
+        super().__init__(
+            ast,
+            inlineCommentChar="//",
+            scope_combine_function=lambda higher, lower: f"{higher}::{lower}",
+            type_lookup=BUILTIN_TO_CPP,
+        )
 
     def generate(self, source_name=None):
         if source_name is None:
@@ -38,14 +43,7 @@ class CppGenerator(Generator):
         # for module in self.ast_tree.tree:
         #     modules += self._generate_module(module)
         # needs to be called after all messages are generated
-        modules += self._generate_module_members(
-            [
-                self.ast_tree.constant_iterator(),
-                self.ast_tree.state_iterator(),
-                self.ast_tree.message_iterator(),
-            ],
-            [self._generate_constants, self._generate_enum, self._generate_message],
-        )
+        modules += self._generate_module_members(self.ast_tree.print_order_iterator())
 
         wordIDs = self._generate_wordIDList() + "\n"
         max_size_constant = self._get_max_message_size()
@@ -122,7 +120,7 @@ class CppGenerator(Generator):
             + "/******************************************** USER DATA ********************************************/\n\n"
         )
 
-        printVar = lambda field, *args: f"{self.tab()}{self._print_variable(field)}\n"
+        printVar = lambda field, *args: f"{self.tab()}{self._print_variable_declaration(field)}\n"
         line += self._message_field_worker(
             message=message,
             on_bf_open=lambda field, *args: self._open_bitField(),
@@ -154,9 +152,9 @@ class CppGenerator(Generator):
         prevBFname = None
 
         on_udf_lambda = lambda field, *args: (
-            f"{self.msg_name_w_scope_from_name(field['type'])}::SIZE "
+            f"{self.msg_name_w_scope(field['type'])}::SIZE "
             + (
-                f" * {self.msg_name_w_scope_from_name(field['count'])}"
+                f" * {self.msg_name_w_scope(field['count'])}"
                 if field["count"] != 1
                 else ""
             )
@@ -199,36 +197,38 @@ class CppGenerator(Generator):
         return line
 
     def _generate_constants(self, constant):
-        resolvedType = (
-            BUILTIN_TO_CPP[constant["type"]]
-            if constant["type"] in BUILTIN_TO_CPP.keys()
-            else constant["type"]
-        )
-        line = (
-            self.tab() + f"constexpr {self._print_variable(constant)}"
-        )  # semi-colon is added in print_variable
+        line = f"{self.tab()}constexpr {self._print_variable_declaration(constant)}"  # semi-colon is added in print_variable
         if DOC in constant.keys():
             line += f"\t// {constant[DOC][1:-1]}"
         return line + "\n"
 
-    def _generate_module_members(self, iterators, generators):
+    def _generate_module_members(self, print_list):
+        generators = {
+            "MSG": self._generate_message,
+            STATE: self._generate_enum,
+            CONST: self._generate_constants,
+        }
         line = ""
         moduleName = None
-        for iterator, generator in zip(iterators, generators):
-            for member in iterator:
-                if moduleName != member["parent"]["name"]:
-                    if moduleName is not None:
-                        self.dedent()
-                        line += f"{self.tab()}}}; // namespace {moduleName}\n\n"
+        newName = None
+        for element in print_list:
+            e_type = self.ast_tree.get_type(element)
+            generator = (
+                generators[CONST] if e_type in BUILTINS.keys() else generators[e_type]
+            )
+            newName = self.get_module_name(element)
+            if moduleName != newName:
+                if moduleName is not None:
+                    self.dedent()
+                    line += f"{self.tab()}}}; // namespace {moduleName}\n\n"
 
-                    line += f"{self.tab()}namespace {member['parent']['name']} {{\n"
-                    self.indent()
-                    moduleName = member["parent"]["name"]
-                line += f"{generator(member)}\n"
+                line += f"{self.tab()}namespace {newName} {{\n"
+                self.indent()
+                moduleName = newName
+            line += f"{generator(element)}\n"
         if moduleName is not None:
             self.dedent()
             line += f"{self.tab()}}}; // namespace {moduleName}\n\n"
-
         return line
 
     def _generate_message_deserialization(self, message):
@@ -283,62 +283,41 @@ class CppGenerator(Generator):
             function_hton_call = "deserialize"
 
         line = ""
-        if field["count"] != 1:
-            line += self.tab() + f"for(int i = 0; i < {field['count']}; i++) " "{\n"
+        count = self.get_count(field)
+        if count != 1:
+            line += self.tab() + f"for(int i = 0; i < {count}; i++) " "{\n"
             self.indent()
 
-        if field["type"] in BUILTIN_TO_CPP.keys():
-            if field["count"] == 1:
+        if self.get_language_type(field) in CPP_TO_BUILTINS.keys():
+            if count == 1:
                 line += f"{self.tab()}{hton_call}(&{field['name']}, itr, sizeof({field['name']}));\n"
             else:
                 line += f"{self.tab()}{hton_call}({field['name']}, itr, sizeof({field['name']}[0]));\n"
-
         else:
             line += self.tab() + f"itr += {field['name']}"
-            if field["count"] != 1:
+            if count != 1:
                 line += "[i]"
             line += f".{function_hton_call}(itr);\n"
 
-        if field["count"] != 1:
+        if count != 1:
             self.dedent()
             line += self.tab() + "}\n"
 
         return line
 
-    def _print_variable(self, field):
-        if field["type"] == BF:
-            resolvedType = U8CPP
-            for key in CPP_TO_BUILTINS.keys():
-                if CPP_TO_BUILTINS[key]["bitLength"] < int(field["count"]):
-                    continue
-                resolvedType = key
-                break
-            if CPP_TO_BUILTINS[resolvedType]["bitLength"] < int(field["count"]):
-                raise Exception(
-                    f"Field {field['name']} is too large for type {resolvedType}"
-                )
-        elif field["type"] in BUILTIN_TO_CPP.keys():
-            resolvedType = BUILTIN_TO_CPP[field["type"]]
-        else:
-            logger.debug("Resolving type for " + field["type"])
-            resolvedType = self.msg_name_w_scope_from_name(field["type"])
-
-        string = f"{resolvedType} {field['name']}"
+    def _print_variable_declaration(self, field):
+        string = f"{self.get_language_type(field)} {field['name']}"
 
         # add count / array size / bitfield size if necessary
-        if field["type"] == BF:
-            string += f" : {field['count']}"
-        elif not is_number(field["count"]) or int(field["count"]) > 1:
-            string += f"[{field['count']}]"
+        count = self.get_count(field)
+        if self.ast_tree.get_type(field) == BF:
+            string += f" : {count}"
+        elif not is_number(count) or int(count) > 1:
+            string += f"[{count}]"
 
         # add default value & docstring if available
-        if "default_value" in field.keys() and field["default_value"] is not None:
-            if is_number(field["default_value"]):
-                string += f" = {field['default_value']}"
-            else:
-                # get default value scope
-                logger.debug(f"Searching for default value of {field['default_value']}")
-                string += f" = {self.msg_name_w_scope_from_name(field['default_value'])}"
+        if "default_value" in field and field["default_value"] is not None:
+            string += f" = {self.get_default_value(field)}"
 
         string += ";"
 
@@ -359,16 +338,16 @@ class CppGenerator(Generator):
         param = {
             "type": resolvedType,
             "name": bfName,
-            "count": 1,
+            "count": "1",
         }
         # use byte array in this case
         if CPP_TO_BUILTINS[BUILTIN_TO_CPP[key]]["bitLength"] < bfSize:
             param["type"] = U8
-            param["count"] = bfSize // 8
+            param["count"] = f"{bfSize // 8}"
 
         self.dedent()
         line = self.tab() + "};\n"
-        line += self.tab() + self._print_variable(param) + "\n"
+        line += self.tab() + self._print_variable_declaration(param) + "\n"
         self.dedent()
         line += self.tab() + "};\n"
         return line
