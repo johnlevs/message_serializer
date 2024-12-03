@@ -107,23 +107,21 @@ if __name__ == "__main__":
 
     # sys.tracebacklimit = 0
     # Directory._debug = True
-    # try:
-    D = Directory(args.I)
-    tree, error_count = D.validate()
-    # except Exception as e:
-    #     logger.fatal(f"Error: {e}")
-    #     exit(1)
-
-    if error_count > 0:
-        logger.error("Validation failed")
+    try:
+        D = Directory(args.I)
+        tree = D.validate()
+    except Exception as e:
+        logger.fatal(f"Error: {e}")
         exit(1)
 
-    if args.L == "cpp":
-        codeGen = CppGenerator(tree)
-    elif args.L == "python":
-        codeGen = pythonGenerator(tree)
-    else:
+    code_generators = {
+        "cpp": CppGenerator,
+        "python": pythonGenerator,
+    }
+
+    if args.L not in code_generators.keys():
         print(f"Language {args.L} not supported")
         exit(1)
-
+    
+    codeGen = code_generators[args.L](tree)
     codeGen.generate_source_files(args.D, args.O)

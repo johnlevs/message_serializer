@@ -3,7 +3,7 @@ import os
 import logging
 
 from abc import ABC, abstractmethod
-from message_serializer.ast import ast
+from message_serializer.ast import ast, is_number
 from message_serializer.lexerConfig import *
 
 
@@ -12,11 +12,18 @@ logger = logging.getLogger("message_serializer")
 
 class Generator(ABC):
     tabCount = 0
-    inlineCommentChar = "#"
-    scope_combine_function = lambda self, higher, lower: f"{higher}.{lower}"
     msg_id_function = lambda self, higher, lower: f"{higher}__{lower}"
 
-    def __init__(self, tree: "ast"):
+    def __init__(
+        self,
+        tree: "ast",
+        inlineCommentChar,
+        scope_combine_function,
+        type_lookup: dict,
+    ):
+        self.scope_combine_function = scope_combine_function
+        self.type_lookup = type_lookup
+        self.inlineCommentChar = inlineCommentChar
         self.ast_tree = tree
 
     def tab(self):
@@ -77,35 +84,15 @@ class Generator(ABC):
         *args,
     ):
         line = ""
-        bf_name = None
-        bf_open = False
-        bf_size = 0
         for field in message["fields"]:
-            if field["type"] in BUILTINS.keys():
-                if field["type"] == BF:
-                    if not bf_open:
-                        line += on_bf_open(field, bf_name, bf_size, *args)
-                        bf_open = True
-                    elif bf_name != field[PW]:
-                        line += on_bf_close(field, bf_name, bf_size, *args)
-                        line += on_bf_open(field, bf_name, bf_size, *args)
-                    bf_name = field[PW]
-                    line += on_bf(field, bf_name, bf_size, *args)
-                    bf_size += int(field["count"])
-                else:
-                    if bf_open:
-                        line += on_bf_close(field, bf_name, bf_size, *args)
-                        bf_open = False
-                        bf_size = 0
-                    line += on_df(field, bf_name, bf_size, *args)
+            e_type = self.ast_tree.get_type(field)
+            if e_type == BF:
+                line += on_bf_open(field) + on_bf(field) + on_bf_close(field)
+            elif e_type in BUILTINS.keys():
+                line += on_df(field)
             else:
-                if bf_open:
-                    line += on_bf_close(field, bf_name, bf_size, *args)
-                    bf_open = False
-                    bf_size = 0
-                line += on_udf(field, bf_name, bf_size, *args)
-        if bf_open:
-            line += on_bf_close(field, bf_name, bf_size, *args)
+                line += on_udf(field)
+
         return line
 
     def msg_2_wordID(self, message):
@@ -113,10 +100,38 @@ class Generator(ABC):
 
     def msg_name_w_scope(self, message):
         temp = self.scope_combine_function(message["parent"]["name"], message["name"])
-        if "parent" in message["parent"]:
-            return self.scope_combine_function(message["parent"]["parent"]["name"], temp)
+        if (
+            "parent" in message["parent"]
+            and message["parent"]["parent"]["type"] != "directory"
+        ):
+            return self.scope_combine_function(
+                message["parent"]["parent"]["name"], temp
+            )
         return temp
-    
-    def msg_name_w_scope_from_name(self, name):
-        return self.msg_name_w_scope(self.ast_tree.find_member_reference(name))
-        
+
+    def get_module_name(self, element):
+        if element["type"] == "module":
+            return element["name"]
+        return self.get_module_name(element["parent"])
+
+    def get_language_type(self, element):
+        e_type = self.ast_tree.get_type(element)
+        if e_type not in BUILTINS.keys():
+            return self.msg_name_w_scope(element["type"])
+        return self.type_lookup[e_type]
+
+    def get_default_value(self, element):
+        if "default_value" in element and element["default_value"] is not None:
+            dv = element["default_value"]
+            if is_number(dv):
+                return dv
+            return self.msg_name_w_scope(dv)
+
+        return None
+
+    def get_count(self, element):
+        if "count" not in element:
+            return "1"
+        if is_number(element["count"]):
+            return element["count"]
+        return self.msg_name_w_scope(element["count"])

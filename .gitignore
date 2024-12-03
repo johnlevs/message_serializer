@@ -9,3 +9,4 @@ archive
 log/*.log
 .vscode
 tester.sh
+message_serializer/module.py

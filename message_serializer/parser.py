@@ -18,16 +18,9 @@ def p_start(p):
     """start : entries"""
     if p[1] is None:
         return
-    messages = [
-        entry for entry in p[1] if (entry is not None and entry["entryType"] == MSGDEF)
-    ]
-    constants = [
-        entry for entry in p[1] if (entry is not None and entry["entryType"] == CONST)
-    ]
-    states = [
-        entry for entry in p[1] if (entry is not None and entry["entryType"] == STATE)
-    ]
-    p[0] = {"messages": messages, "constants": constants, "states": states}
+    p[0] = {"elements": p[1]}
+    for element in p[1]:
+        element["parent"] = p[0]
 
 
 def p_entries(p):
@@ -52,16 +45,14 @@ def p_constant_def(p):
     | CONST IDENTIFIER TYPE "=" NUMBER newline
     | CONST IDENTIFIER TYPE "=" NUMBER DOC STRING newline"""
     p[0] = {
-        "entryType": CONST,
-        "count": 1,
-        "type": p[3],
         "name": p[2],
-        "default_value": p[5],
+        "type": p[3],
         "line": p.lineno(1),
+        "count": 1,
+        "default_value": p[5],
     }
     if len(p) == 8:
         p[0][DOC] = p[7]
-
 
 
 def p_constant_def_error2(p):
@@ -80,12 +71,18 @@ def p_constant_def_error2(p):
 def p_message_def(p):
     """message_def : MESSAGEDEF IDENTIFIER optional_fields "{" field_defs "}" """
     p[0] = {
-        "entryType": MSGDEF,
-        "type": p[1],
         "name": p[2],
+        "type": p[1],
         "line": p.lineno(1),
         "fields": p[5],
     }
+    # assign parent references to fields
+
+    p[0]["fields"] = merge_adjacent_bitfields(p[0]["fields"])
+
+    for field in p[0]["fields"]:
+        field["parent"] = p[0]
+
     if p[3] is None:
         return
     for optional_field in p[3]:
@@ -108,12 +105,14 @@ def p_message_def_error(p):
 def p_state_def(p):
     """state_def : STATE IDENTIFIER optional_fields "{" state_fields "}" """
     p[0] = {
-        "entryType": STATE,
-        "type": p[1],
         "name": p[2],
+        "type": p[1],
         "line": p.lineno(1),
         "fields": p[5],
     }
+    # assign parent references to fields
+    for field in p[0]["fields"]:
+        field["parent"] = p[0]
     if p[3] is None:
         return
     for optional_field in p[3]:
@@ -146,9 +145,20 @@ def p_state_field(p):
     """state_field  : IDENTIFIER default_value newline
     | IDENTIFIER default_value DOC STRING newline"""
     if len(p) == 4:
-        p[0] = {"name": p[1], "default_value": p[2], "line": p.lineno(1)}
+        p[0] = {
+            "name": p[1],
+            "default_value": p[2],
+            "line": p.lineno(1),
+            "type": STATEFIELD,
+        }
     else:
-        p[0] = {"name": p[1], "default_value": p[2], "doc": p[4], "line": p.lineno(1)}
+        p[0] = {
+            "name": p[1],
+            "default_value": p[2],
+            "doc": p[4],
+            "line": p.lineno(1),
+            "type": STATEFIELD,
+        }
 
 
 def p_state_field_error(p):
@@ -178,7 +188,7 @@ precedence = (
     ("left", "NUMBER"),
     ("left", "STRING"),
     ("left", "DOC"),
-    ("left", "PW"),
+    ("left", PW),
 )
 
 
@@ -187,9 +197,9 @@ def p_field_def(p):
     p[0] = {
         "name": p[1],
         "type": p[2],
+        "line": p.lineno(1),
         "count": p[3],
         "default_value": p[4],
-        "line": p.lineno(1),
     }
     if p[5] is not None:
         for optional_field in p[5]:
@@ -262,7 +272,7 @@ def p_optional_field(p):
     | PW IDENTIFIER"""
     if len(p) == 3:
         if p[1] == DOCREG:
-            p[0] = {DOC: p[2]}
+            p[0] = {DOC: p[2][1:-1]}
         elif p[1] == PWREG:
             p[0] = {PW: p[2]}
     else:
@@ -336,11 +346,12 @@ def is_number(s):
     except ValueError:
         return False
 
+
 def numeric_bounds_check(node):
     value = node["default_value"]
     resolvedType = node["type"]
     if resolvedType not in BUILTINS.keys():
-        
+
         return True
     if not is_number(value):
         return True
@@ -355,9 +366,81 @@ def numeric_bounds_check(node):
     minVal = bi_type["min"]
     maxVal = bi_type["max"]
 
-    if resolvedType == "bitfield":
+    if resolvedType == BF:
         minVal = 0
         maxVal = 2 ** int(node["count"]) - 1
         resolvedType = "bitFeild_size_" + node["count"]
 
     return value >= minVal and value <= maxVal
+
+
+def merge_adjacent_bitfields(entries):
+    merged_entries = []
+    i = 0
+    bitfield_counter = 0
+    current_bf_name = None
+    existing_bf_names = set()
+
+    while i < len(entries):
+        entry = entries[i]
+        if entry["type"] == BF:
+            if PW in entry:
+                pw = entry[PW]
+                if pw in existing_bf_names:
+                    raise ValueError(
+                        f"Duplicate bitfield name '{pw}' found in message."
+                    )
+                existing_bf_names.add(pw)
+                current_bf_name = pw
+            else:
+                if current_bf_name is None:
+                    current_bf_name = f"bitfield_{bitfield_counter}"
+                    bitfield_counter += 1
+                pw = current_bf_name
+
+            bitfield_group = [entry]
+            total_count = int(entry["count"])
+            i += 1
+            while i < len(entries) and entries[i]["type"] == BF:
+                next_entry = entries[i]
+                if PW in next_entry:
+                    next_pw = next_entry[PW]
+                    if next_pw in existing_bf_names:
+                        raise ValueError(
+                            f"Duplicate bitfield name '{next_pw}' found in message."
+                        )
+                    existing_bf_names.add(next_pw)
+                    current_bf_name = next_pw
+                    break
+                bitfield_group.append(next_entry)
+                total_count += next_entry["count"]
+                i += 1
+
+            if total_count % 8 != 0:
+                padding_bits = 8 - (total_count % 8)
+                padding_name = f"padding_{bitfield_counter}"
+                bitfield_counter += 1
+                bitfield_group.append(
+                    {
+                        "name": padding_name,
+                        "type": BF,
+                        "count": padding_bits,
+                        "default_value": 0,
+                        "line": entry["line"],
+                    }
+                )
+
+            merged_entries.append(
+                {
+                    "name": pw,
+                    "fields": bitfield_group,
+                    "type": BF,
+                    "count": total_count,
+                    "line": entry["line"],
+                }
+            )
+        else:
+            merged_entries.append(entry)
+            i += 1
+
+    return merged_entries

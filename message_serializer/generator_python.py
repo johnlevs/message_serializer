@@ -13,7 +13,12 @@ class pythonGenerator(Generator):
 
     def __init__(self, tree: ast):
         self.inlineCommentChar = "#"
-        super().__init__(tree)
+        super().__init__(
+            tree,
+            "#",
+            lambda higher, lower: f"{higher}.{lower}",
+            BUILTIN_TO_PYTHON,
+        )
 
     def generate(self):
 
@@ -26,18 +31,7 @@ class pythonGenerator(Generator):
         importStr = "\n".join(imports) + "\n\n\n"
 
         msgIds = self._generate_message_id_list()
-        modules = self._generate_module_members(
-            [
-                self.ast_tree.constant_iterator(),
-                self.ast_tree.state_iterator(),
-                self.ast_tree.message_iterator(),
-            ],
-            [
-                self._generate_constants,
-                self._generate_enum,
-                self._generate_message,
-            ],
-        )
+        modules = self._generate_module_members()
 
         return self.get_license() + importStr + msgIds + modules
 
@@ -51,7 +45,7 @@ class pythonGenerator(Generator):
         )
 
         for field in message["fields"]:
-            line += self._print_variable(field)
+            line += self._print_variable_declaration(field)
 
         line += (
             self.tab()
@@ -74,11 +68,10 @@ class pythonGenerator(Generator):
         self.indent()
         for field in message["fields"]:
             line += f"{self.tab()}:param {field['name']}:"
-            if DOC in field.keys():
-                line += f" {field[DOC][1:-1]}\n"
-            else:
-                line += f" \n"
-            line += f"{self.tab()}:type {field['name']}: {self.get_type(field)}\n"
+            line += f" {field[DOC]}\n" if DOC in field.keys() else "\n"
+            line += (
+                f"{self.tab()}:type {field['name']}: {self.get_language_type(field)}\n"
+            )
         self.dedent()
 
         line += f'\n {self.tab()}"""\n'
@@ -88,10 +81,9 @@ class pythonGenerator(Generator):
         line = f"{self.tab()}class wordIds:\n"
         self.indent()
         index = 0
-        for module in self.ast_tree.tree:
-            for message in module["messages"]:
-                line += f"{self.tab()}{module['name'].upper()}_{message['name'].upper()} = {index}\n"
-                index += 1
+        for message in self.ast_tree.message_iterator():
+            line += f"{self.tab()}{self.msg_2_wordID(message)} = {index}\n"
+            index += 1
         self.dedent()
         return line + "\n"
 
@@ -107,37 +99,48 @@ class pythonGenerator(Generator):
         return f"{line}\n"
 
     def _generate_constants(self, constant):
-        resolvedType = (
-            BUILTIN_TO_PYTHON[constant["type"]]
-            if constant["type"] in BUILTIN_TO_PYTHON.keys()
-            else constant["type"]
-        )
-        if is_number(constant["default_value"]):
-            dv = constant["default_value"]
-        else:
-            dv = self.msg_name_w_scope_from_name(constant["default_value"])
-        line = f"{self.tab()}{constant['name'].upper()}: {resolvedType} = {dv}\n"
+        dv = self.get_default_value(constant)
+        e_type = self.get_language_type(constant)
+        line = f"{self.tab()}{constant['name'].upper()}: {e_type} = {dv}\n"
         return line + "\n"
 
-    def _generate_module_members(self, iterators, generators):
+    def _generate_module_members(self):
+        generators = {
+            "MSG": self._generate_message,
+            STATE: self._generate_enum,
+            CONST: self._generate_constants,
+        }
         line = ""
         moduleName = None
-        for iterator, generator in zip(iterators, generators):
-            for member in iterator:
-                if moduleName != member["parent"]["name"]:
-                    if moduleName is not None:
-                        self.dedent()
+        newName = None
 
-                    line += f"class {member['parent']['name']}:\n"
-                    self.indent()
-                    moduleName = member["parent"]["name"]
-                line += f"{generator(member)}\n"
+        for element in self.ast_tree.print_order_iterator():
+            e_type = self.ast_tree.get_type(element)
+            newName = self.get_module_name(element)
+            generator = (
+                generators[CONST] if e_type in BUILTINS.keys() else generators[e_type]
+            )
+            if moduleName != element["parent"]["name"]:
+                if moduleName is not None:
+                    self.dedent()
+
+                line += f"class {newName}:\n"
+                self.indent()
+                moduleName = newName
+            line += f"{generator(element)}\n"
+
         if moduleName is not None:
             self.dedent()
 
         return line
 
     def _generate_message_deserialization_helper(self, message):
+
+        deseralize_bf_members = lambda bf: "".join(
+            f"{self.tab()}self.{self._field_name(field)} = {self.bStrVName}.read('uint:{field['count']}')\n"
+            for field in bf["fields"]
+        )
+
         line = f"{self.tab()}def deserialize(self, byteArr):\n"
         self.indent()
         line += f"{self.tab()}{self.bStrVName} = BitStream(bytes=byteArr)\n"
@@ -145,7 +148,7 @@ class pythonGenerator(Generator):
             message,
             on_bf_open=lambda field, *args: "",
             on_bf_close=lambda field, *args: "",
-            on_bf=lambda field, *args: f"{self.tab()}self.{self._field_name(field)} = {self.bStrVName}.read('uint:{field['count']}')\n",
+            on_bf=lambda field, *args: deseralize_bf_members(field),
             on_udf=lambda field, *args: self._deserialize_user_defined(field),
             on_df=lambda field, *args: self._deserialize_builtin(field, self.bStrVName),
         )
@@ -153,6 +156,12 @@ class pythonGenerator(Generator):
         return line + "\n"
 
     def _generate_message_serialization_helper(self, message):
+
+        serialize_bf_members = lambda bf: "".join(
+            f"{self.tab()}{self.bfBstrVName}.append(BitStream(uint=self.{self._field_name(field)}, length={field['count']}))\n"
+            for field in bf["fields"]
+        )
+
         line = f"{self.tab()}def serialize(self) -> bytes:\n"
         self.indent()
         line += f"{self.tab()}{self.bStrVName} = BitStream()\n"
@@ -160,7 +169,7 @@ class pythonGenerator(Generator):
             message,
             on_bf_open=lambda field, *args: f"{self.tab()}{self.bfBstrVName} = BitStream()\n",
             on_bf_close=lambda field, *args: f"{self.tab()}{self.bStrVName}.append(self.reverse_bits({self.bfBstrVName}))\n",
-            on_bf=lambda field, *args: f"{self.tab()}{self.bfBstrVName}.append(BitStream(uint=self.{self._field_name(field)}, length={field['count']}))\n",
+            on_bf=lambda field, *args: serialize_bf_members(field),
             on_udf=lambda field, *args: self._serialize_user_defined(field),
             on_df=lambda field, *args: self._serialize_builtin(field, self.bStrVName),
         )
@@ -171,7 +180,8 @@ class pythonGenerator(Generator):
     def _serialize_user_defined(self, field):
         line = ""
         name = self._field_name(field)
-        if not is_number(field["count"]) or field["count"] != 1:
+        count = self.get_count(field)
+        if not is_number(count) or count != 1:
             line += f"{self.tab()}[bStr.append(BitArray(bytes={name}.serialize())) for {name} in self.{name}]\n"
         else:
             line = f"{self.tab()}bStr.append(BitArray(bytes=self.{name}.serialize()))\n"
@@ -180,8 +190,8 @@ class pythonGenerator(Generator):
     def _deserialize_user_defined(self, field):
         line = ""
         name = self._field_name(field)
-        if not is_number(field["count"]) or field["count"] != 1:
-            count = self.msg_name_w_scope_from_name(field["count"])
+        count = self.get_count(field)
+        if not is_number(count) or count != 1:
             line += f"{self.tab()}[{name}.deserialize({self.bStrVName}) for {name} in self.{name}]\n"
         else:
             line = f"{self.tab()}self.{name}.deserialize({self.bStrVName})\n"
@@ -190,34 +200,33 @@ class pythonGenerator(Generator):
     def _deserialize_builtin(self, field, bStrVName):
         line = ""
         name = self._field_name(field)
+        count = self.get_count(field)
+        e_type = self.get_language_type(field)
         # bitfield case
-        if field["type"] == BF:
-            line = (
-                f"{self.tab()}self.{name} = {bStrVName}.read('uint:{field['count']}')\n"
-            )
+        if e_type == BF:
+            line = f"{self.tab()}self.{name} = {bStrVName}.read('uint:{count}')\n"
         # array case
-        elif field["count"] != 1:
-            count = field["count"]
-            if not is_number(field["count"]):
-                count = self.msg_name_w_scope_from_name(field["count"])
-            line += f"{self.tab()}self.{name} = [{bStrVName}.read('{BUILTIN_TO_BIT_STRINGS[field['type']]}') for _ in range({count})]\n"
+        elif count != 1:
+            line += f"{self.tab()}self.{name} = [{bStrVName}.read('{BUILTIN_TO_BIT_STRINGS[field['type']['name']]}') for _ in range({count})]\n"
         # single case
         else:
-            line = f"{self.tab()}self.{name} = {bStrVName}.read('{BUILTIN_TO_BIT_STRINGS[field['type']]}')\n"
+            line = f"{self.tab()}self.{name} = {bStrVName}.read('{BUILTIN_TO_BIT_STRINGS[field['type']['name']]}')\n"
         return line
 
     def _serialize_builtin(self, field, bStrVName):
         line = ""
         name = self._field_name(field)
+        e_type = self.get_language_type(field)
+        count = self.get_count(field)
         # bitfield case
-        if field["type"] == BF:
-            line = f"{self.tab()}{bStrVName}.append(BitStream(uint=self.{name}, length={field['count']}))\n"
+        if e_type == BF:
+            line = f"{self.tab()}{bStrVName}.append(BitStream(uint=self.{name}, length={count}))\n"
         # array case
-        elif field["count"] != 1:
-            line += f"{self.tab()}[{bStrVName}.append(BitStream(uint={name}, length={BUILTINS[field['type']][BITLENGTH]})) for {name} in self.{name}]\n"
+        elif count != 1:
+            line += f"{self.tab()}[{bStrVName}.append(BitStream(uint={name}, length={field['type'][BITLENGTH]})) for {name} in self.{name}]\n"
         # single case
         else:
-            line = f"{self.tab()}{bStrVName}.append(BitStream(uint=self.{name}, length={BUILTINS[field['type']][BITLENGTH]}))\n"
+            line = f"{self.tab()}{bStrVName}.append(BitStream(uint=self.{name}, length={field['type'][BITLENGTH]}))\n"
         return line
 
     def generate_source_files(self, output_dir, source_name=None):
@@ -231,41 +240,24 @@ class pythonGenerator(Generator):
         with open(f"{output_dir}/{source_name}.py", "w") as f:
             f.write(self.generate())
 
-    def _print_variable(self, field):
+    def _print_variable_declaration(self, field):
         # add variable
         name = self._field_name(field)
+        count = self.get_count(field)
+        e_type = self.get_language_type(field)
+
         line = f"{self.tab()}{name}: "
-        if field["type"] != BF and (
-            not is_number(field["count"]) or int(field["count"]) > 1
-        ):
-            line += f"List['{self.get_type(field)}']\n"
+        if e_type != BF and (not is_number(count) or int(count) > 1):
+            line += f"List['{e_type}']\n"
         else:
-            line += f"{self.get_type(field)}\n"
+            line += f"{e_type}\n"
 
         # add docs
-        line += f'{self.tab()}"""'
-        if DOC in field.keys():
-            line += f"{self.tab()}{field[DOC][1:-1]}"
-        line += f'{self.tab()}"""\n'
-
-        return line
-
-    def get_type(self, field):
-        line = ""
-        if field["type"] in BUILTIN_TO_PYTHON.keys():
-            line += f"{BUILTIN_TO_PYTHON[field['type']]}"
-        else:
-            # this should have a valid type as determined by the validator
-            logger.debug("Resolving type for " + field["type"])
-            member = self.ast_tree.find_member(field["type"])
-            resolvedType = member[0][0] + "."
-            if member[2] is not None:
-                resolvedType += (
-                    +self.ast_tree.tree[member[0][1]][member[1][1]]["name"] + "."
-                )
-            resolvedType += field["type"]
-            line += f"{resolvedType}"
-
+        line += (
+            f'{self.tab()}"""{self.tab()}{field[DOC]}{self.tab()}"""\n'
+            if DOC in field
+            else ""
+        )
         return line
 
     def _generate_message_initializer(self, message):
@@ -273,32 +265,18 @@ class pythonGenerator(Generator):
         self.indent()
         for field in message["fields"]:
             name = self._field_name(field)
-            count = 1
-            if field["type"] != BF and (
-                not is_number(field["count"]) or int(field["count"]) > 1
-            ):
-                count = (
-                    field["count"]
-                    if is_number(field["count"])
-                    else self.msg_name_w_scope_from_name(field["count"])
-                )
-                print_type = (
-                    self.msg_name_w_scope_from_name(field["type"])
-                    if field["type"] not in BUILTIN_TO_PYTHON.keys()
-                    else BUILTIN_TO_PYTHON[field["type"]]
-                )
-                line += f"{self.tab()}self.{name} = [{print_type}] * {count}\n"
+            count = self.get_count(field)
+            e_type = self.get_language_type(field)
+            dv = self.get_default_value(field)
 
-            elif field["default_value"] is not None:
-                if is_number(field["default_value"]):
-                    dv = field["default_value"]
-                else:  # user defined type
-                    dv = self.msg_name_w_scope_from_name(field["default_value"])
+            if e_type != BF and (not is_number(count) or int(count) > 1):
+                line += f"{self.tab()}self.{name} = [{e_type}] * {count}\n"
+            elif dv is not None:
                 line += f"{self.tab()}self.{name} = {dv}\n"
-            elif field["type"] not in BUILTIN_TO_PYTHON.keys():
-                line += f"{self.tab()}self.{name} = {self.msg_name_w_scope_from_name(field['type'])}()\n"
+            elif e_type not in BUILTIN_TO_PYTHON.keys():
+                line += f"{self.tab()}self.{name} = {e_type}()\n"
             else:
-                line += f"{self.tab()}self.{name} = {BUILTINS[field['type']][DEFAULT_VALUE]}\n"
+                line += f"{self.tab()}self.{name} = {BUILTINS[e_type][DEFAULT_VALUE]}\n"
         self.dedent()
         return f"{line}\n\n"
 
