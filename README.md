@@ -1,5 +1,11 @@
 # Message Serializer
 
+## setup
+To install requirements, use the `requirements.txt` file
+```sh
+pip install -r requirements.txt
+```
+
 ## Usage
 
 To use this tool, run message_serializer.py in the commandline. Arguments are needed to direct the script towards the configuration files, where the messages are defined.
