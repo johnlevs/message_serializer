@@ -1,29 +1,31 @@
 import os
 import logging
 
-from message_serializer.module import Module
 from message_serializer.ast import ast
-
+from message_serializer import parser
 
 logger = logging.getLogger("message_serialize")
+
 
 class Directory:
     _debug = False
     CONFIG_FILE_ENDING = ".icd"
 
     def __init__(self, path):
-        Module._module_debug = self._debug
+        self._module_debug = self._debug
         self.path = path
-        self.modules = []
-        self._load_modules()
+        self.modules = self._load_modules()
 
     def _load_modules(self):
-        logger.info(f"Scanning directory {self.path} for *{self.CONFIG_FILE_ENDING} files")
+        modules = []
+        logger.info(
+            f"Scanning directory {self.path} for *{self.CONFIG_FILE_ENDING} files"
+        )
         for file in os.listdir(self.path):
             if file.endswith(self.CONFIG_FILE_ENDING):
                 logger.info(f"Found {file}, parsing...")
-                m = Module(os.path.join(self.path, file))
-                self.modules.append(m)
+                modules.append(self._read_module(os.path.join(self.path, file)))
+        return modules
 
     def __str__(self):
         return "\n".join([str(module) for module in self.modules])
@@ -33,21 +35,22 @@ class Directory:
 
     def validate(self):
         logger.info("Validating modules")
-        moduleNames = []
-        constants = []
+        tree = {"modules": self.modules, "type": "directory", "name": "root"}
         for module in self.modules:
-            moduleNames += module.get_names()
-            constants += module.get_constants()
-            constants += module.get_states()
+            module["parent"] = tree
+        return ast(tree)  # , error_count
 
-        error_count = 0
-        for module in self.modules:
-            module.validate_type_names(moduleNames)
-            module.validate_module_names()
-            module.validate_message_names()
-            module.validate_default_values(constants)
-            error_count += module.error_count()
-
-        self.tree = [module.data for module in self.modules]
-
-        return ast(self.tree), error_count
+    def _read_module(self, fullFileName):
+        name = fullFileName.replace("\\", "/").split("/")[-1].split(".")[0].upper()
+        logger.debug(f"Creating module from file {fullFileName}. Name: {name}")
+        with open(fullFileName, "r") as file:
+            moduleTree = parser.parse_string(
+                file.read(), fileName=fullFileName, debug=self._module_debug
+            )
+            if moduleTree is None:
+                raise ValueError(f"Error parsing file {fullFileName}")
+            moduleTree["filename"] = fullFileName
+            moduleTree["name"] = name
+            moduleTree["type"] = "module"
+            moduleTree["line"] = 0
+            return moduleTree
