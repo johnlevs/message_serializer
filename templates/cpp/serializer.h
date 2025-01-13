@@ -17,8 +17,11 @@ namespace serializer {
 };
 
 struct serializableMessage {
+    serializableMessage(const int id) : WORD_ID(id) {}
     virtual int serialize(uint8_t *buffer) = 0;
     virtual int deserialize(uint8_t *buffer) = 0;
+
+    const int WORD_ID;
 };
 
 #endif // __SERIALIZER__

@@ -47,7 +47,7 @@ class CppGenerator(Generator):
 
         wordIDs = self._generate_wordIDList() + "\n"
         max_size_constant = self._get_max_message_size()
-
+        message_generator = f"{self.tab()}serializableMessage *newMessage(wordIDs id);\n";
         self.dedent()
 
         headerFile = (
@@ -58,6 +58,7 @@ class CppGenerator(Generator):
             + wordIDs
             + modules
             + max_size_constant
+            + message_generator
             + f"}} // namespace {source_name.upper()}\n\n"
             + f"#endif\t//_{source_name.upper()}_H_\n\n"
         )
@@ -77,7 +78,7 @@ class CppGenerator(Generator):
             )
 
         impl_includes = f'#include "{source_name}.h"\n\n'
-        implementationFile = lic + impl_includes + serializers
+        implementationFile = lic + impl_includes + self._generate_message_generator_func(source_name.upper()) + serializers
 
         return headerFile, implementationFile
 
@@ -110,11 +111,19 @@ class CppGenerator(Generator):
 
     def _generate_message(self, message):
         module = message["parent"]
+
+            
+        # declaration
         line = (
             self.tab() + f"struct {message['name']} : public serializableMessage" " {\n"
         )
         docTab = self.tab()
         self.indent()
+        
+        #constructor
+        word_id = f"wordIDs::{self.msg_2_wordID(message)}"
+        line += f"{self.tab()}{message['name']}() : serializableMessage((int){word_id}) {{}}\n"
+        
         line += (
             self.tab()
             + "/******************************************** USER DATA ********************************************/\n\n"
@@ -148,9 +157,7 @@ class CppGenerator(Generator):
             + "/******************************************** SERIALIZATION ********************************************/\n\n"
         )
         # message size parameter
-        line += self.tab() + "static constexpr uint16_t SIZE = "
-        prevBFname = None
-
+        line += self.tab() + f"static constexpr uint16_t SIZE = "
         on_udf_lambda = lambda field, *args: (
             f"{self.msg_name_w_scope(field['type'])}::SIZE "
             + (
@@ -167,11 +174,6 @@ class CppGenerator(Generator):
             on_udf=on_udf_lambda,
         )
         line += "0;\n"
-        line += (
-            self.tab()
-            + f"static constexpr wordIDs WORDID = wordIDs::"
-            + f"{self.msg_2_wordID(message)};\n"
-        )
 
         # serialization
         line += f"{self.tab()}int serialize(uint8_t *buffer) override;\n"
@@ -378,3 +380,18 @@ class CppGenerator(Generator):
         max_size_constant += f"{self.tab()}" + "}\n\n"
         max_size_constant += f"{self.tab()}constexpr uint16_t MAX_MESSAGE_SIZE = __max_message_size();\n\n"
         return max_size_constant
+
+    def _generate_message_generator_func(self, source_name):
+        line = f"{self.tab()}serializableMessage *{source_name}::newMessage(wordIDs id)\n{self.tab()}{{\n"
+        self.indent();
+        line += f"{self.tab()}switch (id) {{\n"
+        for message in self.ast_tree.message_iterator():
+            line += f"{self.tab()}case wordIDs::{self.msg_2_wordID(message)}:\n"
+            self.indent();
+            line += f"{self.tab()}return new {self.get_module_name(message)}::{message['name']}();\n"
+            self.dedent();
+        line += f"{self.tab()}}}\n"
+        line += f"{self.tab()}return nullptr;\n"
+        self.dedent();
+        line += f"{self.tab()}}}\n\n";
+        return line

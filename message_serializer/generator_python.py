@@ -48,7 +48,8 @@ class pythonGenerator(Generator):
             line += self._print_variable_declaration(field)
 
         line += (
-            self.tab()
+            "\n"
+            + self.tab()
             + '"""########################################## SERIALIZATION ##########################################"""\n\n'
         )
 
@@ -61,7 +62,7 @@ class pythonGenerator(Generator):
     def _generate_message_docs(self, message):
         line = f'{self.tab()}"""\n'
         if DOC in message.keys():
-            line += f"{self.tab()}{message[DOC][1:-1]}"
+            line += f"{self.tab()}{message[DOC]}"
         line += f"\n"
 
         # add parameters
@@ -69,9 +70,7 @@ class pythonGenerator(Generator):
         for field in message["fields"]:
             line += f"{self.tab()}:param {field['name']}:"
             line += f" {field[DOC]}\n" if DOC in field.keys() else "\n"
-            line += (
-                f"{self.tab()}:type {field['name']}: {self.get_language_type(field)}\n"
-            )
+            line += f"{self.tab()}:type {field['name']}: '{self.get_language_type(field)}'\n"
         self.dedent()
 
         line += f'\n {self.tab()}"""\n'
@@ -250,7 +249,7 @@ class pythonGenerator(Generator):
         if e_type != BF and (not is_number(count) or int(count) > 1):
             line += f"List['{e_type}']\n"
         else:
-            line += f"{e_type}\n"
+            line += f"'{e_type}'\n"
 
         # add docs
         line += (
