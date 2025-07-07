@@ -2,6 +2,7 @@ import datetime
 import sys
 import argparse
 import logging
+import os
 
 from message_serializer.directory import Directory
 from message_serializer.code_generators import pythonGenerator, CppGenerator
@@ -27,7 +28,7 @@ arguments = [
         "name": "-L",
         "metavar": "--lang",
         "help": "Language for generated code",
-        "choices": ["cpp", "python"],
+        "choices": ["cpp", "python", "json"],
         "default": "cpp",
     },
 ]
@@ -112,7 +113,16 @@ if __name__ == "__main__":
         tree = D.validate()
     except Exception as e:
         logger.fatal(f"Error: {e}")
-        exit(1)
+        sys.exit(1)
+
+    if args.L == "json":
+        print(f"Generating JSON AST representation only")
+        if not os.path.exists(args.D):
+            logger.debug(f"{args.D} does not exist, creating directory {args.D}")
+            os.makedirs(args.D)
+        with open(f"{args.D}/{args.O}.json", "w") as f:
+            tree.jsonPrint(f)
+        sys.exit(0)
 
     code_generators = {
         "cpp": CppGenerator,
@@ -121,7 +131,7 @@ if __name__ == "__main__":
 
     if args.L not in code_generators.keys():
         print(f"Language {args.L} not supported")
-        exit(1)
-    
+        sys.exit(1)
+
     codeGen = code_generators[args.L](tree)
     codeGen.generate_source_files(args.D, args.O)

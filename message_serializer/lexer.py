@@ -1,6 +1,7 @@
+import sys
 import ply.lex as lex
 from message_serializer.lexerConfig import *
-
+import tempfile
 
 reserved = {"MSG": MSGDEF, "CONSTANT": CONST, "STATE": STATE}
 
@@ -56,8 +57,12 @@ def t_error(t):
     t.lexer.skip(1)
 
 
-lexer = lex.lex()
-
+if getattr(sys, "frozen", False):
+    outputdir = tempfile.gettempdir()
+    lexer = lex.lex(debug=False, optimize=True, outputdir=outputdir)
+else:
+    lexer = lex.lex(optimize=False)
+    
 
 """
 ====================================================================================================

@@ -1,5 +1,6 @@
 import ply.yacc as yacc
 import logging
+import sys
 
 from message_serializer.lexer import *
 import message_serializer.lexer as lexerRef
@@ -307,8 +308,11 @@ def p_error(p):
     __parser.errok()
 
 
-__parser = yacc.yacc()
-
+if getattr(sys, "frozen", False):
+    __parser = yacc.yacc(optimize=True, debug=False, write_tables=False)
+else:
+    __parser = yacc.yacc(optimize=False)
+    
 """
 ====================================================================================================
                                         HELPER FUNCTIONS

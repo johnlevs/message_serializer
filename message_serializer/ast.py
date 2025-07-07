@@ -120,8 +120,10 @@ class ast:
         names = []
         for node in nodeList:
             if node["name"] in names:
-                raise ValueError(f"In File {self.element_file_name(node)}, line {node['line']}:\n"
-                    f"Duplicate element names: {node['name']}")
+                raise ValueError(
+                    f"In File {self.element_file_name(node)}, line {node['line']}:\n"
+                    f"Duplicate element names: {node['name']}"
+                )
             else:
                 names.append(node["name"])
         for node in nodeList:
@@ -206,7 +208,13 @@ class ast:
         =================================================================================================="""
 
     def __str__(self):
-        return json.dumps(self.tree, indent=4)
+        return json.dumps(self.__print_order, indent=4)
+
+    def jsonPrint(self, outFile):
+        for element in self.__depth_first_iterator():
+            if "parent" in element.keys():
+                del element["parent"]
+        return json.dump(self.__print_order, outFile)
 
     def __depth_first_iterator(self):
         nodeList = [node for node in self.tree["modules"]]
